@@ -1,0 +1,2 @@
+# 本项目的 .h 均为 C++ 头文件（GitHub 语言统计默认按 C 识别）
+*.h linguist-language=C++
