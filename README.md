@@ -29,6 +29,55 @@
 | **外设控制** | **登录** |
 | ![外设控制](docs/images/main_device.png) | ![登录](docs/images/login.png) |
 
+## 🏗️ 架构
+
+```mermaid
+flowchart LR
+    CAM["📷 线阵相机"]
+    CAMW["CMvCamera<br/>MVS SDK"]
+    Q[("ArrayQueue<br/>帧队列")]
+    PT["ProcessThread<br/>Bayer→RGB · 拼接整图"]
+    DET["trtyolo::DetectModel<br/>切片推理 + NMS"]
+    SAVE["QtConcurrent<br/>异步保存"]
+    DISK[("💾 整图 .jpg<br/>缺陷 .csv")]
+    PLCM["PLCManager<br/>Snap7"]
+    PLC["🔌 西门子 PLC"]
+    LOGIN["LoginDialog<br/>登录"]
+    MW["MainWindow<br/>界面 · 参数 · 状态"]
+    LC["HikLightController<br/>串口 19200 8N1"]
+    LIGHT["💡 光源控制器"]
+    CC["ConveyorController<br/>Modbus ASCII 9600 7E1"]
+    CONV["🚚 传送带 PLC"]
+
+    CAM -- "图像回调" --> CAMW --> Q -- "取帧" --> PT
+    PT <-- "逐帧推理" --> DET
+    PT -- "整图 + 缺陷" --> SAVE --> DISK
+    PT -- "有缺陷置位 · 空闲保活" --> PLCM --> PLC
+    PT -- "检测图 · 缺陷 · 耗时<br/>Qt 信号" --> MW
+    LOGIN --> MW
+    MW -. "打开 · 参数 · 触发" .-> CAMW
+    MW --> LC --> LIGHT
+    MW --> CC --> CONV
+
+    classDef hw fill:#eef2f7,stroke:#64748b,color:#1e2733
+    classDef ui fill:#e8effd,stroke:#2563eb,color:#1e2733
+    classDef core fill:#ffffff,stroke:#2563eb,color:#1e2733,stroke-width:2px
+    classDef io fill:#ffffff,stroke:#94a3b8,color:#1e2733
+    classDef store fill:#f8fafc,stroke:#94a3b8,color:#1e2733
+    class CAM,PLC,LIGHT,CONV hw
+    class LOGIN,MW ui
+    class Q,PT,DET core
+    class CAMW,PLCM,LC,CC,SAVE io
+    class DISK store
+```
+
+程序分 4 类线程，互不阻塞：
+
+- 📥 **相机回调线程**（MVS SDK）：只负责把帧写进 `ArrayQueue`。
+- ⚙️ **ProcessThread**：取帧、推理、拼接，整板检完后通过 PLC 发出信号；PLC 连接也在这个线程里建立。
+- 💾 **线程池**（QtConcurrent）：异步写 JPG 和 CSV，不拖慢检测。
+- 🖥️ **主线程**：界面、光源和传送带串口；检测结果经 Qt 信号回到这里显示。
+
 ## 🧰 环境与依赖
 
 以下组合在 Windows 10/11 x64 上验证可用。Qt、VS、CUDA、TensorRT、MVS 装在系统里，其余放在项目根目录：
