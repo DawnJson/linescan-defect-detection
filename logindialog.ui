@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>表面缺陷检测系统</string>
+   <string>线阵视觉表面缺陷检测系统</string>
   </property>
   <layout class="QHBoxLayout" name="loginRootLayout">
    <property name="spacing">
@@ -103,7 +103,7 @@
       <item>
        <widget class="QLabel" name="brandTitle">
         <property name="text">
-         <string>表面缺陷检测系统</string>
+         <string>线阵视觉表面缺陷检测系统</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignmentFlag::AlignCenter</set>

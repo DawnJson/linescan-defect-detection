@@ -116,18 +116,18 @@ void ProcessThread::run()
         qWarning() << "ProcessThread - PLC IP is empty, skipping PLC connection";
     }
 
-    if (m_config.framesPerBoard <= 0)
+    if (m_config.framesPerPart <= 0)
     {
-        qWarning() << "ProcessThread - Invalid frames per board:" << m_config.framesPerBoard;
+        qWarning() << "ProcessThread - Invalid frames per part:" << m_config.framesPerPart;
     }
 
     ImageNode node;
     node.pData = std::make_unique<unsigned char[]>(m_queue.bufferSize());
 
-    QList<QImage> boardFrames;
-    int boardHeight = 0;          // 已拼接帧的总高度，即下一帧在拼接图中的 y 偏移
+    QList<QImage> partFrames;
+    int partHeight = 0;           // 已拼接帧的总高度，即下一帧在拼接图中的 y 偏移
     qint64 detectionMs = 0;
-    qint64 busyMs = 0;            // 本板处理耗时（不含等待取帧）
+    qint64 busyMs = 0;            // 本件处理耗时（不含等待取帧）
     QElapsedTimer displayTimer;
     QElapsedTimer frameTimer;
 
@@ -147,9 +147,9 @@ void ProcessThread::run()
             continue;
         }
 
-        if (boardFrames.isEmpty())
+        if (partFrames.isEmpty())
         {
-            emit boardStarted();
+            emit partStarted();
         }
 
         // 缺陷检测（仅彩色图像）
@@ -169,7 +169,7 @@ void ProcessThread::run()
                 if (result.num > 0)
                 {
                     emit defectsFound(drawDetectionBoxes(image, result));
-                    m_boardHasDefect = true;
+                    m_partHasDefect = true;
 
                     if (m_config.saveCsv)
                     {
@@ -177,8 +177,8 @@ void ProcessThread::run()
                         for (int i = 0; i < result.num; ++i)
                         {
                             const trtyolo::Box& b = result.boxes[i];
-                            appendDetection(m_boardDefects,
-                                            trtyolo::Box(b.left, b.top + boardHeight, b.right, b.bottom + boardHeight),
+                            appendDetection(m_partDefects,
+                                            trtyolo::Box(b.left, b.top + partHeight, b.right, b.bottom + partHeight),
                                             result.classes[i], result.scores[i]);
                         }
                     }
@@ -191,8 +191,8 @@ void ProcessThread::run()
             detectionMs += detectionTimer.elapsed();
         }
 
-        boardFrames.append(image);
-        boardHeight += image.height();
+        partFrames.append(image);
+        partHeight += image.height();
 
         if (!displayTimer.isValid() || displayTimer.elapsed() >= DISPLAY_INTERVAL_MS)
         {
@@ -205,20 +205,20 @@ void ProcessThread::run()
 
         busyMs += frameTimer.elapsed();
 
-        if (m_config.framesPerBoard > 0 && boardFrames.size() >= m_config.framesPerBoard)
+        if (m_config.framesPerPart > 0 && partFrames.size() >= m_config.framesPerPart)
         {
             frameTimer.start();
-            finishBoard(boardFrames, detectionMs);
+            finishPart(partFrames, detectionMs);
             busyMs += frameTimer.elapsed();
-            qDebug() << "ProcessThread - Board finished:" << boardFrames.size() << "frames, busy" << busyMs
+            qDebug() << "ProcessThread - Part finished:" << partFrames.size() << "frames, busy" << busyMs
                      << "ms, detection" << detectionMs << "ms";
 
-            boardFrames.clear();
-            boardHeight = 0;
+            partFrames.clear();
+            partHeight = 0;
             detectionMs = 0;
             busyMs = 0;
 
-            // 连续来帧时 poll() 不会超时，在板与板之间维护 PLC 连接
+            // 连续来帧时 poll() 不会超时，在件与件之间维护 PLC 连接
             servicePlc();
         }
     }
@@ -537,16 +537,16 @@ QStringList ProcessThread::drawDetectionBoxes(QImage& image, const trtyolo::Dete
 }
 
 /**
- * @brief 一块板的帧收齐：通知 PLC，拼接，异步保存图像和 CSV，重置板状态
+ * @brief 一件的帧收齐：通知 PLC，拼接，异步保存图像和 CSV，重置本件状态
  */
-void ProcessThread::finishBoard(const QList<QImage>& frames, qint64 detectionMs)
+void ProcessThread::finishPart(const QList<QImage>& frames, qint64 detectionMs)
 {
     if (detectionMs > 0)
     {
         emit detectionTimeUpdated(detectionMs);
     }
 
-    if (m_boardHasDefect)
+    if (m_partHasDefect)
     {
         sendDefectSignal();
     }
@@ -560,8 +560,8 @@ void ProcessThread::finishBoard(const QList<QImage>& frames, qint64 detectionMs)
     {
         const QString imageName = QDateTime::currentDateTime().toString("yyyy-MM-dd-HH-mm-ss-zzz") + ".jpg";
         const QString basePath = m_config.savePath;
-        const bool saveCsv = m_config.saveCsv && m_boardDefects.num > 0;
-        trtyolo::DetectRes defects = std::move(m_boardDefects);
+        const bool saveCsv = m_config.saveCsv && m_partDefects.num > 0;
+        trtyolo::DetectRes defects = std::move(m_partDefects);
 
         // 图像和 CSV 在同一个任务里按顺序保存，图像失败则不写 CSV
         (void)QtConcurrent::run([stitched = std::move(stitched), basePath, imageName, saveCsv,
@@ -591,8 +591,8 @@ void ProcessThread::finishBoard(const QList<QImage>& frames, qint64 detectionMs)
         });
     }
 
-    m_boardHasDefect = false;
-    m_boardDefects = trtyolo::DetectRes();
+    m_partHasDefect = false;
+    m_partDefects = trtyolo::DetectRes();
 }
 
 /**
@@ -672,7 +672,7 @@ bool ProcessThread::saveDefectsToCSV(const QString& imageName, const trtyolo::De
 }
 
 /**
- * @brief 空闲时和每块板结束后调用：已连接则定时保活，断线则定时重连
+ * @brief 空闲时和每件结束后调用：已连接则定时保活，断线则定时重连
  */
 void ProcessThread::servicePlc()
 {
@@ -706,9 +706,9 @@ void ProcessThread::servicePlc()
 }
 
 /**
- * @brief 置位 V8080.0 通知 PLC 本板有缺陷
+ * @brief 置位 V8080.0 通知 PLC 本件有缺陷
  *
- * 断线时直接放弃（重连交给 servicePlc() 定时进行，避免每块板都等连接超时），断线期间只记一次日志；
+ * 断线时直接放弃（重连交给 servicePlc() 定时进行，避免每件都等连接超时），断线期间只记一次日志；
  * 已连接但写失败时（如 PLC 刚重启）立即重连并重试一次。
  */
 void ProcessThread::sendDefectSignal()

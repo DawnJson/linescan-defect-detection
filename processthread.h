@@ -21,7 +21,7 @@ struct ImageNode;
  */
 struct ProcessConfig
 {
-    int framesPerBoard = 0;        // 每块板拼接的帧数
+    int framesPerPart = 0;         // 每件拼接的帧数
     QString savePath;              // 拼接图与 CSV 的保存目录
     bool hbDecode = false;         // 相机开启了 HB 无损压缩，需要先解码
     bool detect = false;           // 是否做缺陷检测
@@ -39,7 +39,7 @@ struct ProcessConfig
 /**
  * @brief 图像处理线程（消费者）
  *
- * 从队列取帧 → 转 RGB → 缺陷检测 → 累积拼接 → 异步保存，并在每块板结束时通知 PLC。
+ * 从队列取帧 → 转 RGB → 缺陷检测 → 累积拼接 → 异步保存，并在每件结束时通知 PLC。
  * 与界面只通过信号交互。
  */
 class ProcessThread : public QThread
@@ -62,13 +62,13 @@ signals:
     /// 预览帧（已按 displaySize 缩放，带检测框），最多约 15 fps
     void frameReady(const QImage& image);
 
-    /// 新一块板的第一帧到达
-    void boardStarted();
+    /// 新一件的第一帧到达
+    void partStarted();
 
     /// 一帧检测到的缺陷描述
     void defectsFound(const QStringList& defects);
 
-    /// 一块板所有帧的检测总耗时（毫秒）
+    /// 一件所有帧的检测总耗时（毫秒）
     void detectionTimeUpdated(qint64 elapsedMs);
 
 protected:
@@ -86,7 +86,7 @@ private:
     QImage toImage(const ImageNode& node);
     bool detectDefects(const QImage& rgbImage, trtyolo::DetectRes& result);
     QStringList drawDetectionBoxes(QImage& image, const trtyolo::DetectRes& result) const;
-    void finishBoard(const QList<QImage>& frames, qint64 detectionMs);
+    void finishPart(const QList<QImage>& frames, qint64 detectionMs);
 
     void servicePlc();
     void sendDefectSignal();
@@ -105,9 +105,9 @@ private:
     trtyolo::DetectModel* m_detector;
     const ProcessConfig m_config;
 
-    // 当前板的状态
-    bool m_boardHasDefect = false;          // 本板是否检测到缺陷（板结束时通知 PLC）
-    trtyolo::DetectRes m_boardDefects;      // 本板缺陷，坐标为拼接图坐标（用于 CSV）
+    // 当前件的状态
+    bool m_partHasDefect = false;           // 本件是否检测到缺陷（本件结束时通知 PLC）
+    trtyolo::DetectRes m_partDefects;       // 本件缺陷，坐标为拼接图坐标（用于 CSV）
 
     // 格式转换缓冲区（仅行未对齐或 HB 解码时使用）
     std::unique_ptr<unsigned char[]> m_decodeBuffer;

@@ -190,7 +190,7 @@ bool MainWindow::loadModel(const QString& path, QString* error)
 ProcessConfig MainWindow::makeProcessConfig() const
 {
     ProcessConfig config;
-    config.framesPerBoard = ui->AcquisitionBurstFrameCountEdit->text().toInt();
+    config.framesPerPart = ui->AcquisitionBurstFrameCountEdit->text().toInt();
     config.savePath = ui->imgSavePathEdit->text();
     config.hbDecode = ui->HBFormatBox->currentText() == "HB";
     config.detect = m_yoloDetector && ui->DetectCheckBox->isChecked();
@@ -246,7 +246,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->DetectCheckBox->setChecked(modelLoaded);
     updateModelStatus();
 
-    // 缺陷数随列表变化（每行一个缺陷，每块板开始时清空）。
+    // 缺陷数随列表变化（每行一个缺陷，每件开始时清空）。
     // 只捕获模型和标签本身、以标签为接收者：窗口析构时 ui 已释放，而 QListWidget 析构仍会发 modelReset
     QAbstractItemModel* defectModel = ui->DefectListWidget->model();
     QLabel* defectCountLabel = ui->DefectCountLabel;
@@ -892,7 +892,7 @@ void MainWindow::on_StartGrab_clicked()
         pixmap.setDevicePixelRatio(dpr);
         ui->PicLabel->setPixmap(pixmap);
     });
-    connect(m_ProcessThread.get(), &ProcessThread::boardStarted, ui->DefectListWidget, &QListWidget::clear);
+    connect(m_ProcessThread.get(), &ProcessThread::partStarted, ui->DefectListWidget, &QListWidget::clear);
     connect(m_ProcessThread.get(), &ProcessThread::defectsFound, ui->DefectListWidget, &QListWidget::addItems);
     connect(m_ProcessThread.get(), &ProcessThread::detectionTimeUpdated, this, &MainWindow::updateDetectionTime);
     m_ProcessThread->start();
