@@ -1,4 +1,4 @@
-QT       += core gui serialport network
+QT       += core gui serialport concurrent
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -104,14 +104,6 @@ HEADERS  += $$PWD/snap7-full-1.4.2/release/Wrappers/c-cpp/snap7.h \
 # 使用相对路径
 INCLUDEPATH += $$PWD/TRTYOLO/include
 LIBS += -L$$PWD/TRTYOLO/lib/ -lcustom_plugins -ltrtyolo
-
-# ==================== OpenCV 库配置 ====================
-# 使用相对路径
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/opencv/build/x64/vc16/lib/ -lopencv_world4110
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/opencv/build/x64/vc16/lib/ -lopencv_world4110d
-
-INCLUDEPATH += $$PWD/opencv/build/include
-DEPENDPATH += $$PWD/opencv/build/include
 
 RESOURCES += \
     src.qrc \

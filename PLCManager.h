@@ -1,7 +1,7 @@
 #ifndef PLCMANAGER_H
 #define PLCMANAGER_H
 
-#include <QObject>
+#include <memory>
 #include <QString>
 #include <snap7.h>
 
@@ -9,18 +9,20 @@
  * @brief PLC通信管理类
  *
  * 该类封装了PLC的连接、断开、读写等操作
- * 使用Snap7库与西门子PLC进行通信
+ * 使用Snap7库与西门子PLC（S7-200 SMART）进行通信
+ * 任何读写失败都会将状态置为未连接，调用方可通过reconnect()重连
  */
-class PLCManager : public QObject
+class PLCManager
 {
-    Q_OBJECT
-
 public:
-    explicit PLCManager(QObject *parent = nullptr);
+    PLCManager();
     ~PLCManager();
 
+    PLCManager(const PLCManager&) = delete;
+    PLCManager& operator=(const PLCManager&) = delete;
+
     /**
-     * @brief 连接PLC
+     * @brief 连接PLC，并保存连接参数供reconnect()使用
      * @param ip PLC的IP地址
      * @param rack 机架号（通常为0）
      * @param slot 槽号（通常为1）
@@ -30,9 +32,8 @@ public:
 
     /**
      * @brief 断开PLC连接
-     * @return 成功返回true，失败返回false
      */
-    bool disconnectFromPLC();
+    void disconnectFromPLC();
 
     /**
      * @brief 检查PLC是否已连接
@@ -41,21 +42,26 @@ public:
     bool isConnected() const;
 
     /**
-     * @brief 写入PLC V区单个位
+     * @brief 使用已保存的参数重新连接PLC（先断开再连接）
+     * @return 成功返回true；从未配置过连接参数或连接失败返回false
+     */
+    bool reconnect();
+
+    /**
+     * @brief 原子写入PLC V区（DB1）单个位
      * @param byteOffset 字节偏移
      * @param bitPos 位位置（0-7）
      * @param value 要写入的值
-     * @return 成功返回true，失败返回false
+     * @return 成功返回true，失败返回false（失败时置为未连接）
      */
     bool writeVBit(int byteOffset, int bitPos, bool value);
 
     /**
-     * @brief 读取PLC V区单个位
+     * @brief 读取V区（DB1）byteOffset处1字节，检测PLC是否可达
      * @param byteOffset 字节偏移
-     * @param bitPos 位位置（0-7）
-     * @return 成功返回true，失败返回false
+     * @return 可达返回true，失败返回false（失败时置为未连接）
      */
-    bool readVBit(int byteOffset, int bitPos);
+    bool ping(int byteOffset);
 
     /**
      * @brief 获取最后的错误信息
@@ -63,23 +69,27 @@ public:
      */
     QString getLastError() const;
 
-signals:
-    /**
-     * @brief 连接状态改变信号
-     * @param connected true表示已连接，false表示已断开
-     */
-    void connectionChanged(bool connected);
-
 private:
-    TS7Client* m_client;           // Snap7客户端指针
-    bool m_connected;              // 连接状态标志
-    QString m_lastError;           // 最后的错误信息
-
     /**
      * @brief 设置错误信息
-     * @param errorCode 错误代码
+     * @param errorCode Snap7错误代码
      */
     void setError(int errorCode);
+
+    /**
+     * @brief 读写失败处理：记录错误并标记为未连接
+     * @param errorCode Snap7错误代码
+     */
+    void markFailed(int errorCode);
+
+    std::unique_ptr<TS7Client> m_client;    // Snap7客户端
+    bool m_connected;                       // 连接状态标志
+    QString m_lastError;                    // 最后的错误信息
+
+    QString m_ip;                           // 保存的连接参数
+    int m_rack;
+    int m_slot;
+    bool m_configured;                      // 是否已保存连接参数
 };
 
 #endif // PLCMANAGER_H

@@ -15,7 +15,8 @@
 #include <QDebug>
 #include <QCoreApplication>
 #include <QDir>
-#include <QFile>
+#include <QSettings>
+#include <QTimer>
 #include "branding.h"
 
 /**
@@ -43,7 +44,6 @@ QString LoginDialog::getConfigFilePath() const
 
     // 返回完整的配置文件路径
     QString configFilePath = configDir + "/login.ini";
-    // qDebug() << "配置文件路径：" << configFilePath;
 
     return configFilePath;
 }
@@ -75,13 +75,9 @@ LoginDialog::LoginDialog(QWidget *parent)
     // 加载保存的账号信息
     loadAccounts();
 
-    // 检查是否需要自动登录
-    QSettings settings(getConfigFilePath(), QSettings::IniFormat);
-    bool autoLogin = settings.value("AutoLogin", false).toBool();
-
-    if (autoLogin && ui->AccountCombobox->count() > 0) {
-        // 执行自动登录
-        performAutoLogin();
+    // 需要自动登录时延迟到 exec() 事件循环内执行，否则 exec() 会重置对话框结果
+    if (ui->AutoLoginBox->isChecked() && ui->AccountCombobox->count() > 0) {
+        QTimer::singleShot(0, this, &LoginDialog::performAutoLogin);
     }
 }
 
@@ -123,12 +119,6 @@ void LoginDialog::loadAccounts()
 
     ui->RememberBox->setChecked(rememberPassword);
     ui->AutoLoginBox->setChecked(autoLogin);
-
-    // 如果有账号，显示第一个账号的密码
-    if (ui->AccountCombobox->count() > 0) {
-        QString firstAccount = ui->AccountCombobox->itemText(0);
-        ui->PasswordEdit->setText(m_accountMap.value(firstAccount, ""));
-    }
 }
 
 /**

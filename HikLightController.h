@@ -2,9 +2,7 @@
 #define HIKLIGHTCONTROLLER_H
 
 #include <QSerialPort>
-#include <QSerialPortInfo>
 #include <QString>
-#include <QDebug>
 
 /**
  * @brief 海康光源控制器类
@@ -33,12 +31,6 @@ public:
      */
     void closeSerial();
 
-    /**
-     * @brief 检查串口是否打开
-     * @return true-已打开, false-未打开
-     */
-    bool isSerialOpen() const;
-
     // ==================== 光源控制 ====================
 
     /**
@@ -63,14 +55,8 @@ public:
     // ==================== 状态查询 ====================
 
     /**
-     * @brief 获取当前缓存的亮度值
-     * @return 当前亮度(0-255)
-     */
-    int getCurrentBrightness() const;
-
-    /**
      * @brief 从设备查询光源亮度
-     * @return 查询到的亮度值(0-255)
+     * @return 查询到的亮度值(0-255)；查询失败时返回上一次缓存的亮度
      */
     int queryLightBrightness();
 
@@ -88,7 +74,6 @@ private:
     // 内部工具函数
     bool sendCommand(const QString &command);
     QString waitForResponse(int timeoutMs = 1000);
-    void parseResponse(const QString &response);
 };
 
 #endif // HIKLIGHTCONTROLLER_H

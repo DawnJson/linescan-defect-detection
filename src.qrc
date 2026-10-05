@@ -11,5 +11,6 @@
         <file alias="nav_device.png">src/ui/nav_device.png</file>
         <file alias="nav_device_sel.png">src/ui/nav_device_sel.png</file>
         <file alias="check.png">src/ui/check.png</file>
+        <file alias="app.qss">src/ui/app.qss</file>
     </qresource>
 </RCC>

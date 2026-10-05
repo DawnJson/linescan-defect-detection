@@ -1,16 +1,23 @@
 #include "PLCManager.h"
 #include <QDebug>
 
+namespace
+{
+const int kDbV = 1;                 // S7-200 SMART的V区对应DB1
+const int kTimeoutMs = 1000;        // Ping/发送/接收超时，避免图像线程被长时间阻塞
+}
+
 // ==================== 构造和析构函数 ====================
 
 /**
  * @brief 构造函数
  * 初始化PLC管理器
  */
-PLCManager::PLCManager(QObject *parent)
-    : QObject(parent)
-    , m_client(nullptr)
-    , m_connected(false)
+PLCManager::PLCManager()
+    : m_connected(false)
+    , m_rack(0)
+    , m_slot(0)
+    , m_configured(false)
 {
 }
 
@@ -20,14 +27,7 @@ PLCManager::PLCManager(QObject *parent)
  */
 PLCManager::~PLCManager()
 {
-    // 在析构时，直接清理资源，不发送信号
-    if (m_client)
-    {
-        m_client->Disconnect();
-        delete m_client;
-        m_client = nullptr;
-    }
-    m_connected = false;
+    disconnectFromPLC();
 }
 
 // ==================== 连接管理函数 ====================
@@ -41,72 +41,46 @@ PLCManager::~PLCManager()
  */
 bool PLCManager::connectToPLC(const QString& ip, int rack, int slot)
 {
-    // 如果已经连接，先断开
-    if (m_connected)
-    {
-        disconnectFromPLC();
-    }
+    disconnectFromPLC();
 
-    // 创建Snap7客户端实例
-    m_client = new TS7Client();
-    if (!m_client)
-    {
-        m_lastError = "Failed to create Snap7 client";
-        qDebug() << m_lastError;
-        return false;
-    }
+    m_ip = ip;
+    m_rack = rack;
+    m_slot = slot;
+    m_configured = true;
 
-    // 连接到PLC
-    int result = m_client->ConnectTo(ip.toLocal8Bit().constData(), rack, slot);
+    m_client.reset(new TS7Client());
+
+    // 连接前设置较短的超时
+    int timeout = kTimeoutMs;
+    m_client->SetParam(p_i32_PingTimeout, &timeout);
+    m_client->SetParam(p_i32_SendTimeout, &timeout);
+    m_client->SetParam(p_i32_RecvTimeout, &timeout);
+
+    int result = m_client->ConnectTo(m_ip.toLocal8Bit().constData(), rack, slot);
     if (result == 0)
     {
         m_connected = true;
         m_lastError.clear();
-        qDebug() << "PLC connected successfully:" << ip;
-        emit connectionChanged(true);
+        qDebug() << "PLC connected successfully:" << m_ip;
         return true;
     }
-    else
-    {
-        setError(result);
-        qDebug() << "PLC connection failed:" << m_lastError;
-        delete m_client;
-        m_client = nullptr;
-        return false;
-    }
+
+    setError(result);
+    m_client.reset();
+    return false;
 }
 
 /**
  * @brief 断开PLC连接
- * @return 成功返回true，失败返回false
  */
-bool PLCManager::disconnectFromPLC()
+void PLCManager::disconnectFromPLC()
 {
-    if (!m_client)
+    if (m_client)
     {
-        m_connected = false;
-        emit connectionChanged(false);
-        return true;
+        m_client->Disconnect();
+        m_client.reset();
     }
-
-    int result = m_client->Disconnect();
-    if (result == 0)
-    {
-        qDebug() << "PLC disconnected successfully";
-        m_lastError.clear();
-    }
-    else
-    {
-        setError(result);
-        qDebug() << "PLC disconnection warning:" << m_lastError;
-    }
-
-    delete m_client;
-    m_client = nullptr;
     m_connected = false;
-    emit connectionChanged(false);
-
-    return true;
 }
 
 /**
@@ -115,13 +89,32 @@ bool PLCManager::disconnectFromPLC()
  */
 bool PLCManager::isConnected() const
 {
-    return m_connected && m_client != nullptr;
+    return m_connected && m_client;
+}
+
+/**
+ * @brief 使用已保存的参数重新连接
+ * @return 成功返回true，未配置或失败返回false
+ */
+bool PLCManager::reconnect()
+{
+    if (!m_configured)
+    {
+        m_lastError = "PLC connection parameters not configured";
+        return false;
+    }
+
+    // connectToPLC会覆盖成员，这里使用副本
+    const QString ip = m_ip;
+    const int rack = m_rack;
+    const int slot = m_slot;
+    return connectToPLC(ip, rack, slot);
 }
 
 // ==================== 数据读写函数 ====================
 
 /**
- * @brief 写入PLC V区单个位
+ * @brief 原子写入PLC V区单个位
  * @param byteOffset 字节偏移
  * @param bitPos 位位置（0-7）
  * @param value 要写入的值
@@ -135,48 +128,28 @@ bool PLCManager::writeVBit(int byteOffset, int bitPos, bool value)
         return false;
     }
 
-    // 先读取当前字节的值
-    byte buffer = 0;
-    int result = m_client->DBRead(1, byteOffset, 1, &buffer);
+    if (byteOffset < 0 || bitPos < 0 || bitPos > 7)
+    {
+        m_lastError = "Invalid PLC address";
+        return false;
+    }
 
+    byte bitValue = value ? 1 : 0;
+    int result = m_client->WriteArea(S7AreaDB, kDbV, byteOffset * 8 + bitPos, 1, S7WLBit, &bitValue);
     if (result != 0)
     {
-        setError(result);
+        markFailed(result);
         return false;
     }
-
-    // 修改指定位
-    if (value)
-    {
-        buffer |= (1 << bitPos);  // 置1
-    }
-    else
-    {
-        buffer &= ~(1 << bitPos); // 清0
-    }
-
-    // 写回PLC的V区
-    result = m_client->DBWrite(1, byteOffset, 1, &buffer);
-
-    if (result == 0)
-    {
-        m_lastError.clear();
-        return true;
-    }
-    else
-    {
-        setError(result);
-        return false;
-    }
+    return true;
 }
 
 /**
- * @brief 读取PLC V区单个位
+ * @brief 读取V区1字节，检测PLC是否可达
  * @param byteOffset 字节偏移
- * @param bitPos 位位置（0-7）
- * @return 成功返回true，失败返回false
+ * @return 可达返回true，失败返回false
  */
-bool PLCManager::readVBit(int byteOffset, int bitPos)
+bool PLCManager::ping(int byteOffset)
 {
     if (!isConnected())
     {
@@ -184,17 +157,13 @@ bool PLCManager::readVBit(int byteOffset, int bitPos)
         return false;
     }
 
-    // 读取当前字节的值
-    byte buffer = 0;
-    int result = m_client->DBRead(1, byteOffset, 1, &buffer);
-
+    byte data = 0;
+    int result = m_client->DBRead(kDbV, byteOffset, 1, &data);
     if (result != 0)
     {
-        setError(result);
+        markFailed(result);
         return false;
     }
-
-    m_lastError.clear();
     return true;
 }
 
@@ -216,4 +185,15 @@ QString PLCManager::getLastError() const
 void PLCManager::setError(int errorCode)
 {
     m_lastError = QString("Snap7 error code: 0x%1").arg(errorCode, 0, 16);
+}
+
+/**
+ * @brief 读写失败处理：记录错误并标记为未连接
+ * @param errorCode Snap7错误代码
+ */
+void PLCManager::markFailed(int errorCode)
+{
+    setError(errorCode);
+    m_connected = false;
+    qDebug() << "PLC I/O failed:" << m_lastError;
 }

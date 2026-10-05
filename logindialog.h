@@ -13,7 +13,6 @@
 #define LOGINDIALOG_H
 
 #include <QDialog>
-#include <QSettings>
 #include <QMap>
 
 namespace Ui {

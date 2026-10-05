@@ -1,13 +1,19 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QComboBox>
+#include <QDebug>
+#include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QIntValidator>
+#include <QMessageBox>
+#include <QRegularExpression>
 #include <QSerialPortInfo>
 #include <QStyle>
 #include "branding.h"
 
 // 常量定义
 namespace {
-    constexpr unsigned int INFINITE_TIMEOUT = 0xFFFFFFFF;
-    constexpr int MV_TRIGGER_SOURCE_ENCODER_MODULE_OUT = 6;
     constexpr int MAX_QUEUE_COUNT = 50;  // 队列缓冲区个数
 }
 
@@ -36,7 +42,7 @@ void MainWindow::setStatusChip(QLabel* label, const QString& text, const char* s
 
 void MainWindow::updateModelStatus()
 {
-    const bool loaded = ui->DetectCheckBox->isEnabled();
+    const bool loaded = m_yoloDetector != nullptr;
     setStatusChip(ui->ModelStatusLabel, loaded ? "已加载" : "未加载", loaded ? "ok" : "error");
 }
 
@@ -86,12 +92,119 @@ void MainWindow::setGrabbingControlsEnabled(bool isGrabbing)
     ui->StartGrab->setEnabled(!isGrabbing);
     ui->StopGrab->setEnabled(isGrabbing);
 
-    // 采集时禁用这些控件
+    // 采集时禁用这些控件：处理线程使用开始采集时的参数快照，期间修改不会生效
     setParameterControlsEnabled(!isGrabbing);
     setAcquisitionControlsEnabled(!isGrabbing);
-    ui->PixelFormatBox->setEnabled(!isGrabbing);
-    ui->HBFormatBox->setEnabled(!isGrabbing);
+    ui->SelectSavePath->setEnabled(!isGrabbing);
+    ui->SelectModelPath->setEnabled(!isGrabbing);
+    ui->DetectCheckBox->setEnabled(!isGrabbing && m_yoloDetector);
+    ui->TileSizeComboBox->setEnabled(!isGrabbing);
+    ui->OverlapRatioCombobox->setEnabled(!isGrabbing);
+    ui->DefectFilterBox->setEnabled(!isGrabbing);
+    ui->FilterSizeCombobox->setEnabled(!isGrabbing);
+    ui->SaveDefectCheckBox->setEnabled(!isGrabbing);
+    ui->IPEdit->setEnabled(!isGrabbing);
+    ui->RackEdit->setEnabled(!isGrabbing);
+    ui->SlotEdit->setEnabled(!isGrabbing);
     setStatusChip(ui->CamStatusLabel, isGrabbing ? "采集中" : "已打开", isGrabbing ? "busy" : "ok");
+}
+
+/**
+ * @brief 读取相机枚举参数，把全部选项填入下拉框并选中当前值
+ * @param map 非空时记录 选项名 → 枚举值
+ */
+int MainWindow::fillEnumCombo(const char* key, QComboBox* box, std::map<QString, int>* map)
+{
+    MVCC_ENUMVALUE value = {};
+    int nRet = m_MyCamera->GetEnumValue(key, &value);
+    if (MV_OK != nRet)
+    {
+        return nRet;
+    }
+
+    box->clear();
+    for (unsigned int i = 0; i < value.nSupportedNum; i++)
+    {
+        MVCC_ENUMENTRY entry = {};
+        entry.nValue = value.nSupportValue[i];
+        m_MyCamera->GetEnumEntrySymbolic(key, &entry);
+
+        const QString symbolic = QString::fromLatin1(entry.chSymbolic);
+        box->addItem(symbolic);
+        if (map)
+        {
+            (*map)[symbolic] = int(entry.nValue);
+        }
+        if (value.nCurValue == value.nSupportValue[i])
+        {
+            box->setCurrentIndex(int(i));
+        }
+    }
+    return MV_OK;
+}
+
+void MainWindow::fillSerialPorts(QComboBox* box)
+{
+    box->clear();
+    const QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo& info : ports)
+    {
+        box->addItem(info.portName());
+    }
+    if (ports.isEmpty())
+    {
+        box->setCurrentText("未检测到可用串口");
+    }
+}
+
+/**
+ * @brief 加载 TensorRT 检测模型，替换当前模型（调用方须保证未在采集）
+ */
+bool MainWindow::loadModel(const QString& path, QString* error)
+{
+    m_modelPath = path;
+    if (!QFileInfo::exists(path))
+    {
+        m_yoloDetector.reset();
+        *error = "模型文件不存在";
+        return false;
+    }
+
+    try
+    {
+        // 模型输入为 RGB，处理线程直接传入 RGB888 图像，不需要通道交换
+        trtyolo::InferOption option;
+        m_yoloDetector = std::make_unique<trtyolo::DetectModel>(path.toStdString(), option);
+        qDebug() << "YOLO 检测器加载成功，模型路径:" << path;
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        m_yoloDetector.reset();
+        *error = QString::fromLocal8Bit(e.what());
+        qCritical() << "YOLO 检测器加载失败:" << e.what();
+        return false;
+    }
+}
+
+ProcessConfig MainWindow::makeProcessConfig() const
+{
+    ProcessConfig config;
+    config.framesPerBoard = ui->AcquisitionBurstFrameCountEdit->text().toInt();
+    config.savePath = ui->imgSavePathEdit->text();
+    config.hbDecode = ui->HBFormatBox->currentText() == "HB";
+    config.detect = m_yoloDetector && ui->DetectCheckBox->isChecked();
+    // 切片尺寸 "1024×1024" → 1024；重叠比例 "20%" → 0.2
+    config.tileSize = ui->TileSizeComboBox->currentText().split(QRegularExpression("[×xX]")).value(0).toInt();
+    config.overlapRatio = QString(ui->OverlapRatioCombobox->currentText()).remove('%').toDouble() / 100.0;
+    config.filterByArea = ui->DefectFilterBox->isChecked();
+    config.minArea = ui->FilterSizeCombobox->currentText().toInt();
+    config.saveCsv = ui->SaveDefectCheckBox->isChecked();
+    config.plcIp = ui->IPEdit->text().trimmed();
+    config.plcRack = ui->RackEdit->text().toInt();
+    config.plcSlot = ui->SlotEdit->text().toInt();
+    config.displaySize = ui->PicLabel->size() * ui->PicLabel->devicePixelRatioF();
+    return config;
 }
 
 // ==================== 主程序代码 ====================
@@ -104,22 +217,11 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , initialflag(false)
-    , m_OpenDevice(false)
-    , m_MyCamera(nullptr)
-    , m_DeviceCombo(0)
-    , m_ThreadState(false)
-    , m_ProcessThread(nullptr)
-    , m_StartGrabbing(false)
     , m_TriggerModeCheck(false)
-    , m_bPreampGain(false)
     , m_bAcquisitionLineRate(false)
     , m_HBMode(false)
-    , m_queue(nullptr)
-    , m_nImageSize(0)
-    , m_yoloDetector(nullptr)
-    , m_enableDefectDetection(true)  // 默认启用检测
-    , m_modelPath("")
-    , m_lightController(nullptr)
+    , m_lightController(std::make_unique<HikLightController>())
+    , m_conveyorController(new ConveyorController(this))
 {
     ui->setupUi(this);
 
@@ -133,86 +235,42 @@ MainWindow::MainWindow(QWidget *parent)
     ui->StopGrab->setEnabled(false);
     ui->SingleSoftTrigger->setEnabled(false);
 
-    // 初始化 YOLO 检测器
-    m_modelPath = ui->ModelPathEdit->text();
-
-    // 检查模型文件是否存在
-    QFileInfo modelFile(m_modelPath);
-    if (modelFile.exists())
+    // 加载 YOLO 检测器，成功则默认启用检测
+    QString error;
+    const bool modelLoaded = loadModel(ui->ModelPathEdit->text(), &error);
+    if (!modelLoaded)
     {
-        try
-        {
-            // 初始化推理选项
-            trtyolo::InferOption option;
-            option.enableSwapRB();  // 启用 RGB 通道交换（从 RGB 到 BGR）
-
-            // 创建检测模型
-            m_yoloDetector = std::make_unique<trtyolo::DetectModel>(m_modelPath.toStdString(), option);
-
-            qDebug() << "YOLO 检测器初始化成功，模型路径:" << m_modelPath;
-
-            // 设置 DetectCheckBox 可用且默认选中（检测功能默认启用）
-            ui->DetectCheckBox->setEnabled(true);
-            ui->DetectCheckBox->setChecked(true);
-        }
-        catch (const std::exception& e)
-        {
-            qCritical() << "YOLO 检测器初始化失败:" << e.what();
-            m_enableDefectDetection = false;
-
-            // 禁用 DetectCheckBox
-            ui->DetectCheckBox->setEnabled(false);
-            ui->DetectCheckBox->setChecked(false);
-        }
+        qWarning() << "YOLO 检测器未加载:" << m_modelPath << error;
     }
-    else
-    {
-        qWarning() << "YOLO 模型文件不存在:" << m_modelPath;
-        m_enableDefectDetection = false;
-
-        // 禁用 DetectCheckBox
-        ui->DetectCheckBox->setEnabled(false);
-        ui->DetectCheckBox->setChecked(false);
-    }
+    ui->DetectCheckBox->setEnabled(modelLoaded);
+    ui->DetectCheckBox->setChecked(modelLoaded);
     updateModelStatus();
 
-    // 缺陷数随列表变化（每行一个缺陷，每块板开始时清空）
-    auto updateDefectCount = [this]() {
-        ui->DefectCountLabel->setText(QString::number(ui->DefectListWidget->count()));
+    // 缺陷数随列表变化（每行一个缺陷，每块板开始时清空）。
+    // 只捕获模型和标签本身、以标签为接收者：窗口析构时 ui 已释放，而 QListWidget 析构仍会发 modelReset
+    QAbstractItemModel* defectModel = ui->DefectListWidget->model();
+    QLabel* defectCountLabel = ui->DefectCountLabel;
+    auto updateDefectCount = [defectModel, defectCountLabel]() {
+        defectCountLabel->setText(QString::number(defectModel->rowCount()));
     };
-    connect(ui->DefectListWidget->model(), &QAbstractItemModel::rowsInserted, this, updateDefectCount);
-    connect(ui->DefectListWidget->model(), &QAbstractItemModel::rowsRemoved, this, updateDefectCount);
-    connect(ui->DefectListWidget->model(), &QAbstractItemModel::modelReset, this, updateDefectCount);
+    connect(defectModel, &QAbstractItemModel::rowsInserted, defectCountLabel, updateDefectCount);
+    connect(defectModel, &QAbstractItemModel::rowsRemoved, defectCountLabel, updateDefectCount);
+    connect(defectModel, &QAbstractItemModel::modelReset, defectCountLabel, updateDefectCount);
 
-    // ==================== 初始化光源控制器 ====================
-
-    // 创建光源控制器对象
-    m_lightController = new HikLightController();
-
-    // 初始化串口列表并设置控件状态
-    initLightPortList();
+    // ==================== 光源控制器 ====================
+    fillSerialPorts(ui->PortCombobox);
     updateLightControlsEnabled(false);
-
-    // 设置亮度输入框的验证器（0-255）
     ui->LightnessEdit->setValidator(new QIntValidator(0, 255, this));
-
-    // 初始化光源状态标签
     setStatusChip(ui->LightStatusLabel, "未连接", "off");
 
-    // ==================== 初始化传送带控制器 ====================
-
-    // 创建传送带控制器对象
-    m_conveyorController = new ConveyorController(this);
-
-    // 连接传送带控制器的信号
+    // ==================== 传送带控制器 ====================
     connect(m_conveyorController, &ConveyorController::statusUpdated,
             this, &MainWindow::updateConveyorStatus);
-
-    // 初始化串口列表并设置控件状态
-    initConveyorPortList();
+    // 串口异常断开（如拔线）时恢复按钮状态
+    connect(m_conveyorController, &ConveyorController::portClosed,
+            this, [this]() { updateConveyorControlsEnabled(false); });
+    fillSerialPorts(ui->ConveyorPortComboBox);
     updateConveyorControlsEnabled(false);
-
-    // 初始化传送带状态标签
     setStatusChip(ui->ConSatus, "未连接", "off");
 
     // 自动搜索设备
@@ -221,100 +279,21 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    // 关闭相机设备
+    // 先停采集线程再关相机
     on_DeviceClose_clicked();
-
-    // 清理光源控制器
-    if (m_lightController)
-    {
-        m_lightController->closeSerial();
-        delete m_lightController;
-        m_lightController = nullptr;
-    }
-
-    // 清理传送带控制器
-    if (m_conveyorController)
-    {
-        m_conveyorController->closeSerial();
-        delete m_conveyorController;
-        m_conveyorController = nullptr;
-    }
-
-    // 删除UI
+    // 关串口会发出 statusUpdated 回调本窗口，必须在 ui 释放前完成；光源控制器析构时自行关串口
+    m_conveyorController->closeSerial();
     delete ui;
 }
 
 int MainWindow::GetTriggerSelector()
 {
-    MVCC_ENUMVALUE stEnumTriggerSelectorValue = { 0 };
-    MVCC_ENUMENTRY stEnumTriggerSelectorEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("TriggerSelector", &stEnumTriggerSelectorValue);
-    if (MV_OK != nRet)
-    {
-        return nRet;
-    }
-
-    ui->TriggerSelectBox->clear();
-    for (int i = 0; i < stEnumTriggerSelectorValue.nSupportedNum; i++)
-    {
-        memset(&stEnumTriggerSelectorEntry, 0, sizeof(stEnumTriggerSelectorEntry));
-        stEnumTriggerSelectorEntry.nValue = stEnumTriggerSelectorValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("TriggerSelector", &stEnumTriggerSelectorEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumTriggerSelectorEntry.chSymbolic);
-
-        ui->TriggerSelectBox->addItem(qstrSymbolic);
-
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumTriggerSelectorValue.nSupportedNum; i++)
-    {
-        if (stEnumTriggerSelectorValue.nCurValue == stEnumTriggerSelectorValue.nSupportValue[i])
-        {
-            ui->TriggerSelectBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    return MV_OK;
+    return fillEnumCombo("TriggerSelector", ui->TriggerSelectBox);
 }
 
 int MainWindow::GetTriggerMode()
 {
-    MVCC_ENUMVALUE stEnumTriggerModeValue = { 0 };
-    MVCC_ENUMENTRY stEnumTriggerModeEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("TriggerMode", &stEnumTriggerModeValue);
-    if (MV_OK != nRet)
-    {
-        return nRet;
-    }
-
-    ui->TriggerModeBox->clear();
-    for (int i = 0; i < stEnumTriggerModeValue.nSupportedNum; i++)
-    {
-        memset(&stEnumTriggerModeEntry, 0, sizeof(stEnumTriggerModeEntry));
-        stEnumTriggerModeEntry.nValue = stEnumTriggerModeValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("TriggerMode", &stEnumTriggerModeEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumTriggerModeEntry.chSymbolic);
-
-        ui->TriggerModeBox->addItem(qstrSymbolic);
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumTriggerModeValue.nSupportedNum; i++)
-    {
-        if (stEnumTriggerModeValue.nCurValue == stEnumTriggerModeValue.nSupportValue[i])
-        {
-            ui->TriggerModeBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    return MV_OK;
+    return fillEnumCombo("TriggerMode", ui->TriggerModeBox);
 }
 
 int MainWindow::GetExposureTime()
@@ -342,42 +321,7 @@ int MainWindow::SetExposureTime()
 
 int MainWindow::GetPreampGain()
 {
-    MVCC_ENUMVALUE stEnumPreampGainValue = { 0 };
-    MVCC_ENUMENTRY stEnumPreampGainEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("PreampGain", &stEnumPreampGainValue);
-    if (MV_OK != nRet)
-    {
-        return nRet;
-    }
-
-    ui->PreampGainBox->clear();
-    for (int i = 0; i < stEnumPreampGainValue.nSupportedNum; i++)
-    {
-        memset(&stEnumPreampGainEntry, 0, sizeof(stEnumPreampGainEntry));
-        stEnumPreampGainEntry.nValue = stEnumPreampGainValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("PreampGain", &stEnumPreampGainEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumPreampGainEntry.chSymbolic);
-
-        ui->PreampGainBox->addItem(qstrSymbolic);
-
-        m_mapPreampGain.insert(std::pair<QString, int>(qstrSymbolic, stEnumPreampGainEntry.nValue));
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumPreampGainValue.nSupportedNum; i++)
-    {
-        if (stEnumPreampGainValue.nCurValue == stEnumPreampGainValue.nSupportValue[i])
-        {
-            ui->PreampGainBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    m_bPreampGain = true;
-
-    return MV_OK;
+    return fillEnumCombo("PreampGain", ui->PreampGainBox, &m_mapPreampGain);
 }
 
 int MainWindow::GetDigitalGain()
@@ -399,7 +343,7 @@ int MainWindow::GetDigitalGain()
 int MainWindow::SetDigitalGain()
 {
     // 设置增益前先把增益使能开关打开，失败无需返回
-    m_MyCamera->SetBoolValue("DigitalShiftEnable", TRUE);
+    m_MyCamera->SetBoolValue("DigitalShiftEnable", true);
 
     return m_MyCamera->SetFloatValue("DigitalShift", ui->DigitalGainEdit->text().toFloat());
 }
@@ -478,127 +422,33 @@ int MainWindow::GetResultingFrameRate()
 
 int MainWindow::GetImageCompressionMode()
 {
-    MVCC_ENUMVALUE stEnumImageCompressionModeValue = { 0 };
-    MVCC_ENUMENTRY stEnumImageCompressionModeEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("ImageCompressionMode", &stEnumImageCompressionModeValue);
-    if (MV_OK != nRet)
+    const int nRet = fillEnumCombo("ImageCompressionMode", ui->HBFormatBox);
+    if (MV_OK == nRet)
     {
-        return nRet;
+        m_HBMode = true;
     }
-
-    ui->HBFormatBox->clear();
-    for (int i = 0; i < stEnumImageCompressionModeValue.nSupportedNum; i++)
-    {
-        memset(&stEnumImageCompressionModeEntry, 0, sizeof(stEnumImageCompressionModeEntry));
-        stEnumImageCompressionModeEntry.nValue = stEnumImageCompressionModeValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("ImageCompressionMode", &stEnumImageCompressionModeEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumImageCompressionModeEntry.chSymbolic);
-
-        ui->HBFormatBox->addItem(qstrSymbolic);
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumImageCompressionModeValue.nSupportedNum; i++)
-    {
-        if (stEnumImageCompressionModeValue.nCurValue == stEnumImageCompressionModeValue.nSupportValue[i])
-        {
-            ui->HBFormatBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    m_HBMode = TRUE;
-
-    return MV_OK;
+    return nRet;
 }
 
 int MainWindow::GetTriggerSource()
 {
-    MVCC_ENUMVALUE stEnumTriggerSourceValue = { 0 };
-    MVCC_ENUMENTRY stEnumTriggerSourceEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("TriggerSource", &stEnumTriggerSourceValue);
+    const int nRet = fillEnumCombo("TriggerSource", ui->TriggerSourceBox, &m_mapTriggerSource);
     if (MV_OK != nRet)
     {
         return nRet;
     }
 
-    ui->TriggerSourceBox->clear();
-    for (int i = 0; i < stEnumTriggerSourceValue.nSupportedNum; i++)
-    {
-        memset(&stEnumTriggerSourceEntry, 0, sizeof(stEnumTriggerSourceEntry));
-        stEnumTriggerSourceEntry.nValue = stEnumTriggerSourceValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("TriggerSource", &stEnumTriggerSourceEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumTriggerSourceEntry.chSymbolic);
-
-        ui->TriggerSourceBox->addItem(qstrSymbolic);
-
-        m_mapTriggerSource.insert(std::pair<QString, int>(qstrSymbolic, stEnumTriggerSourceEntry.nValue));
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumTriggerSourceValue.nSupportedNum; i++)
-    {
-        if (stEnumTriggerSourceValue.nCurValue == stEnumTriggerSourceValue.nSupportValue[i])
-        {
-            ui->TriggerSourceBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    QString strTriggerSource = ui->TriggerSourceBox->currentText();
-
-    QString cStrTriggerSelector = ui->TriggerSelectBox->currentText();
-
-    QString cStrTriggerMode = ui->TriggerModeBox->currentText();
-
-    if ("FrameBurstStart" == cStrTriggerSelector &&cStrTriggerMode == "On" && "Software" == strTriggerSource)
+    if (ui->TriggerSelectBox->currentText() == "FrameBurstStart" && ui->TriggerModeBox->currentText() == "On" &&
+        ui->TriggerSourceBox->currentText() == "Software")
     {
         m_TriggerModeCheck = true;
     }
-
     return MV_OK;
 }
 
 int MainWindow::GetPixelFormat()
 {
-    MVCC_ENUMVALUE stEnumPixelFormatValue = { 0 };
-    MVCC_ENUMENTRY stEnumPixelFormatEntry = { 0 };
-
-    int nRet = m_MyCamera->GetEnumValue("PixelFormat", &stEnumPixelFormatValue);
-    if (MV_OK != nRet)
-    {
-        return nRet;
-    }
-
-    ui->PixelFormatBox->clear();
-    for (int i = 0; i < stEnumPixelFormatValue.nSupportedNum; i++)
-    {
-        memset(&stEnumPixelFormatEntry, 0, sizeof(stEnumPixelFormatEntry));
-        stEnumPixelFormatEntry.nValue = stEnumPixelFormatValue.nSupportValue[i];
-        m_MyCamera->GetEnumEntrySymbolic("PixelFormat", &stEnumPixelFormatEntry);
-
-        QString qstrSymbolic = QString::fromLatin1(stEnumPixelFormatEntry.chSymbolic);
-
-        ui->PixelFormatBox->addItem(qstrSymbolic);
-
-        m_mapPixelFormat.insert(std::pair<QString, int>(qstrSymbolic, stEnumPixelFormatEntry.nValue));
-    }
-
-    // 设置当前值
-    for (int i = 0; i < stEnumPixelFormatValue.nSupportedNum; i++)
-    {
-        if (stEnumPixelFormatValue.nCurValue == stEnumPixelFormatValue.nSupportValue[i])
-        {
-            ui->PixelFormatBox->setCurrentIndex(i);
-            break;
-        }
-    }
-
-    return MV_OK;
+    return fillEnumCombo("PixelFormat", ui->PixelFormatBox, &m_mapPixelFormat);
 }
 
 int MainWindow::GetWidthHeight()
@@ -671,35 +521,21 @@ int MainWindow::SetAcquisitionBurstFrameCount()
 
 void __stdcall MainWindow::ImageCallBack(unsigned char * pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser)
 {
-    MainWindow* pThis = (MainWindow*)pUser;
-
-    // QImage img = QImage(pData, pFrameInfo->nWidth,pFrameInfo->nHeight,QImage::Format_RGB888);
-    // auto pixmap = QPixmap::fromImage(img);
-    // pThis->ui->PicLabel->setPixmap(pixmap.scaled(pThis->ui->PicLabel->width(),pThis->ui->PicLabel->height(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    if (NULL ==  pFrameInfo ||  NULL ==  pData)
+    if (nullptr == pFrameInfo || nullptr == pData)
     {
-        qDebug()<<"ImageCallBackEx Input Param invalid!";
         return;
     }
 
-    int nRet = ArrayQueue::OK;
-    nRet = pThis->m_queue->push(pFrameInfo->nFrameNum, pFrameInfo->nExtendWidth, pFrameInfo->nExtendHeight, pData, pFrameInfo->nFrameLenEx);
-    if (ArrayQueue::OK != nRet)
+    auto* pThis = static_cast<MainWindow*>(pUser);
+    const int nRet = pThis->m_queue->push(*pFrameInfo, pData);
+    if (ArrayQueue::E_BUFOVER == nRet)
     {
-        qDebug() << "Add Image to list failed!";
+        qWarning() << "Image queue full, dropping frame" << pFrameInfo->nFrameNum;
     }
-    else
-    {
-        // qDebug() << "Add Image to list success!";
-    }
-
-    return;
 }
 
 void MainWindow::on_SearchDevice_clicked()
 {
-    QString DeviceStr;
     ui->DeviceStrBox->clear();
     memset(&m_stDevList, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
 
@@ -717,83 +553,69 @@ void MainWindow::on_SearchDevice_clicked()
         return;
     }
 
-    // 将值加入到信息列表框中并显示出来
+    // 列出全部设备，条目数据保存其在 m_stDevList 中的下标
     for (unsigned int i = 0; i < m_stDevList.nDeviceNum; i++)
     {
-        MV_CC_DEVICE_INFO* pDeviceInfo = m_stDevList.pDeviceInfo[i];
-        if (NULL == pDeviceInfo)
+        const MV_CC_DEVICE_INFO* pDeviceInfo = m_stDevList.pDeviceInfo[i];
+        if (nullptr == pDeviceInfo)
         {
             continue;
         }
 
+        QString deviceStr;
         if (pDeviceInfo->nTLayerType == MV_GIGE_DEVICE)
         {
-            int nIp1 = ((m_stDevList.pDeviceInfo[i]->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
-            int nIp2 = ((m_stDevList.pDeviceInfo[i]->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
-            int nIp3 = ((m_stDevList.pDeviceInfo[i]->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
-            int nIp4 = (m_stDevList.pDeviceInfo[i]->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
-
-            char strUserName[256] = {0};
-            sprintf_s(strUserName, 256, "%s %s (%s)",
-                      pDeviceInfo->SpecialInfo.stGigEInfo.chManufacturerName,
-                      pDeviceInfo->SpecialInfo.stGigEInfo.chModelName,
-                      pDeviceInfo->SpecialInfo.stGigEInfo.chSerialNumber);
-
-            DeviceStr= QString("[%1]GigE: %2  %3.%4.%5.%6")
-                         .arg( QString::number(i)).
-                     arg(strUserName).
-                     arg(QString::number(nIp1)).
-                     arg(QString::number(nIp2)).
-                     arg(QString::number(nIp3)).
-                     arg( QString::number(nIp4));
-
-            ui->DeviceStrBox->addItem(DeviceStr);
+            const MV_GIGE_DEVICE_INFO& gige = pDeviceInfo->SpecialInfo.stGigEInfo;
+            const unsigned int ip = gige.nCurrentIp;
+            deviceStr = QString("[%1]GigE: %2 %3 (%4)  %5.%6.%7.%8")
+                            .arg(i)
+                            .arg(QString::fromLocal8Bit(reinterpret_cast<const char*>(gige.chManufacturerName)),
+                                 QString::fromLocal8Bit(reinterpret_cast<const char*>(gige.chModelName)),
+                                 QString::fromLocal8Bit(reinterpret_cast<const char*>(gige.chSerialNumber)))
+                            .arg((ip >> 24) & 0xff).arg((ip >> 16) & 0xff).arg((ip >> 8) & 0xff).arg(ip & 0xff);
         }
-
+        else if (pDeviceInfo->nTLayerType == MV_USB_DEVICE)
+        {
+            const MV_USB3_DEVICE_INFO& usb = pDeviceInfo->SpecialInfo.stUsb3VInfo;
+            deviceStr = QString("[%1]USB: %2 %3 (%4)")
+                            .arg(i)
+                            .arg(QString::fromLocal8Bit(reinterpret_cast<const char*>(usb.chManufacturerName)),
+                                 QString::fromLocal8Bit(reinterpret_cast<const char*>(usb.chModelName)),
+                                 QString::fromLocal8Bit(reinterpret_cast<const char*>(usb.chSerialNumber)));
+        }
+        else
+        {
+            deviceStr = QString("[%1]Device type 0x%2").arg(i).arg(pDeviceInfo->nTLayerType, 0, 16);
+        }
+        ui->DeviceStrBox->addItem(deviceStr, int(i));
     }
 
     ui->DeviceStrBox->setCurrentIndex(0);
-
-    ui->DeviceOpen->setEnabled(true);
-
+    ui->DeviceOpen->setEnabled(ui->DeviceStrBox->count() > 0);
 }
 
 void MainWindow::on_DeviceOpen_clicked()
 {
-    if (true == m_OpenDevice || NULL != m_MyCamera)
+    if (m_MyCamera)
     {
         return;
     }
 
-    // int nIndex = m_DeviceCombo;
-    int nIndex = ui->DeviceStrBox->currentIndex();
-
-    if ((nIndex < 0) | (nIndex >= MV_MAX_DEVICE_NUM))
+    // 条目数据是设备在 m_stDevList 中的下标（下拉框序号与设备序号不一定相同）
+    bool ok = false;
+    const int nIndex = ui->DeviceStrBox->currentData().toInt(&ok);
+    if (!ok || nIndex < 0 || nIndex >= int(m_stDevList.nDeviceNum) || nullptr == m_stDevList.pDeviceInfo[nIndex])
     {
         QMessageBox::critical(this,"error","Please select device!");
         return;
     }
 
-    // 由设备信息创建设备实例
-    if (NULL == m_stDevList.pDeviceInfo[nIndex])
-    {
-        QMessageBox::critical(this,"error","Device does not exist!");
-        return;
-    }
-
-    // 创建相机实例
-    m_MyCamera = new CMvCamera;
-    if (NULL == m_MyCamera)
-    {
-        return;
-    }
-
-    // 开启相机
+    // 创建相机实例并打开
+    m_MyCamera = std::make_unique<CMvCamera>();
     int nRet = m_MyCamera->Open(m_stDevList.pDeviceInfo[nIndex]);
     if (MV_OK != nRet)
     {
-        delete m_MyCamera;
-        m_MyCamera = NULL;
+        m_MyCamera.reset();
         QMessageBox::critical(this,"error","Open Fail!");
         return;
     }
@@ -816,7 +638,7 @@ void MainWindow::on_DeviceOpen_clicked()
             QMessageBox::critical(this,"error","Warning: Get Packet Size fail!");
         }
     }
-    m_OpenDevice = true;
+
 
     // 获取所有参数
     on_GetPara_clicked();
@@ -834,30 +656,26 @@ void MainWindow::on_DeviceOpen_clicked()
 
 /**
  * @brief 关闭设备
- * 释放相机资源，清理状态，禁用所有控件
+ * 先停止采集，再释放相机资源，清理状态，禁用所有控件
  */
 void MainWindow::on_DeviceClose_clicked()
 {
+    stopGrabbing();
+
     // 清理映射表和状态标志
     m_mapPixelFormat.clear();
     m_mapPreampGain.clear();
     m_mapTriggerSource.clear();
     m_TriggerModeCheck = false;
     m_bAcquisitionLineRate = false;
-    m_bPreampGain = false;
     m_HBMode = false;
 
     // 关闭并释放相机
     if (m_MyCamera)
     {
         m_MyCamera->Close();
-        delete m_MyCamera;
-        m_MyCamera = nullptr;
+        m_MyCamera.reset();
     }
-
-    // 重置状态标志
-    m_OpenDevice = false;
-    m_StartGrabbing = false;
 
     // 禁用所有控件
     setDeviceControlsEnabled(false);
@@ -1017,42 +835,25 @@ void MainWindow::on_SetPara_clicked()
 
 void MainWindow::on_StartGrab_clicked()
 {
-    if (false == m_OpenDevice || true == m_StartGrabbing || NULL == m_MyCamera)
+    if (!m_MyCamera || m_ProcessThread)
     {
         return;
     }
 
     ui->PicLabel->clear();
 
-    // 获取图像数据大小
+    // 队列每个缓冲区的大小取相机的 PayloadSize
     MVCC_INTVALUE_EX stIntEx = {0};
     int nRet = m_MyCamera->GetIntValue("PayloadSize", &stIntEx);
-    if (MV_OK != nRet)
-    {
-        int nWidth = ui->WidthEdit->text().toInt();
-        int nHeight = ui->HeightEdit->text().toInt();
+    const uint64_t imageSize = (MV_OK == nRet)
+        ? uint64_t(stIntEx.nCurValue)
+        : uint64_t(ui->WidthEdit->text().toInt()) * ui->HeightEdit->text().toInt() * 3;
 
-        m_nImageSize =  nHeight*nWidth*3;
-    }
-    else
+    m_queue = std::make_unique<ArrayQueue>();
+    if (ArrayQueue::OK != m_queue->init(MAX_QUEUE_COUNT, imageSize))
     {
-        m_nImageSize =  stIntEx.nCurValue;
-    }
-
-    // 初始化队列
-    m_queue = new (std::nothrow)ArrayQueue();
-    if (!m_queue)
-    {
-        QMessageBox::critical(this, "error", "Failed to create image queue!");
-        return;
-    }
-
-    nRet = m_queue->init(MAX_QUEUE_COUNT, m_nImageSize);
-    if (ArrayQueue::OK != nRet)
-    {
+        m_queue.reset();
         QMessageBox::critical(this, "error", "ArrayQueue init fail!");
-        delete m_queue;
-        m_queue = nullptr;
         return;
     }
 
@@ -1060,106 +861,94 @@ void MainWindow::on_StartGrab_clicked()
     nRet = m_MyCamera->RegisterImageCallBack(ImageCallBack, this);
     if (MV_OK != nRet)
     {
+        m_queue.reset();
         QMessageBox::critical(this, "error", "Register callback function failed!");
         return;
     }
-
-    m_StartGrabbing = true;
 
     // 开始采集
     nRet = m_MyCamera->StartGrabbing();
     if (MV_OK != nRet)
     {
-        m_ThreadState = false;
+        m_MyCamera->RegisterImageCallBack(nullptr, nullptr);
+        m_queue.reset();
         QMessageBox::critical(this, "error", "Start grabbing fail!");
         return;
     }
 
-    // 启动图像处理线程
-    m_ThreadState = true;
-    m_ProcessThread = new ProcessThread(this);
+    // 刷新参数显示，再按界面当前值生成处理参数快照（帧在此期间已进入队列）
+    on_GetPara_clicked();
 
-    // 连接ProcessThread的检测耗时信号
-    connect(m_ProcessThread, &ProcessThread::detectionTimeUpdated,
-            this, &MainWindow::updateDetectionTime,
-            Qt::QueuedConnection);
-
-    // 连接缺陷信息相关信号（线程安全）
-    connect(m_ProcessThread, &ProcessThread::addDefectInfo,
-            this, [this](const QString& defectInfo) {
-                ui->DefectListWidget->addItem(defectInfo);
-            }, Qt::QueuedConnection);
-
-    connect(m_ProcessThread, &ProcessThread::clearDefectList,
-            this, [this]() {
-                ui->DefectListWidget->clear();
-            }, Qt::QueuedConnection);
-
+    m_ProcessThread = std::make_unique<ProcessThread>(*m_queue, *m_MyCamera, m_yoloDetector.get(),
+                                                      makeProcessConfig());
+    connect(m_ProcessThread.get(), &ProcessThread::frameReady, this, [this](const QImage& image) {
+        const qreal dpr = ui->PicLabel->devicePixelRatioF();
+        const QSize target = ui->PicLabel->size() * dpr;
+        QPixmap pixmap = QPixmap::fromImage(image);
+        if (pixmap.width() > target.width() || pixmap.height() > target.height())
+        {
+            pixmap = pixmap.scaled(target, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+        pixmap.setDevicePixelRatio(dpr);
+        ui->PicLabel->setPixmap(pixmap);
+    });
+    connect(m_ProcessThread.get(), &ProcessThread::boardStarted, ui->DefectListWidget, &QListWidget::clear);
+    connect(m_ProcessThread.get(), &ProcessThread::defectsFound, ui->DefectListWidget, &QListWidget::addItems);
+    connect(m_ProcessThread.get(), &ProcessThread::detectionTimeUpdated, this, &MainWindow::updateDetectionTime);
     m_ProcessThread->start();
 
     // 如果是软触发模式，启用软触发按钮
-    QString triggerSource = ui->TriggerSourceBox->currentText();
-    ui->SingleSoftTrigger->setEnabled(triggerSource == "Software" && m_TriggerModeCheck);
-
-    // 刷新参数显示
-    on_GetPara_clicked();
+    ui->SingleSoftTrigger->setEnabled(ui->TriggerSourceBox->currentText() == "Software" && m_TriggerModeCheck);
 
     // 采集中，禁用大部分控件
     setGrabbingControlsEnabled(true);
 }
 
 /**
+ * @brief 停止采集：停相机 → 注销回调 → 停处理线程 → 释放队列
+ */
+void MainWindow::stopGrabbing()
+{
+    if (!m_ProcessThread && !m_queue)
+    {
+        return;
+    }
+
+    if (m_MyCamera)
+    {
+        int nRet = m_MyCamera->StopGrabbing();
+        if (MV_OK != nRet)
+        {
+            qWarning() << "StopGrabbing failed, error code:" << Qt::hex << nRet;
+        }
+        nRet = m_MyCamera->RegisterImageCallBack(nullptr, nullptr);
+        if (MV_OK != nRet)
+        {
+            qWarning() << "Unregister image callback failed, error code:" << Qt::hex << nRet;
+        }
+    }
+
+    m_ProcessThread.reset();  // 析构时请求中断并等待线程退出
+    m_queue.reset();
+
+    setGrabbingControlsEnabled(false);
+    ui->SingleSoftTrigger->setEnabled(false);
+}
+
+/**
  * @brief 停止采集
- * 停止图像采集，释放处理线程和队列资源
  */
 void MainWindow::on_StopGrab_clicked()
 {
-    if (!m_OpenDevice || !m_StartGrabbing || !m_MyCamera)
+    if (!m_ProcessThread)
     {
         return;
     }
 
-    // 停止图像处理线程
-    if (m_ThreadState)
-    {
-        m_ThreadState = false;
-        m_ProcessThread->quit();
-        m_ProcessThread->wait();
-        delete m_ProcessThread;
-        m_ProcessThread = nullptr;
-    }
-
-    // 停止采集
-    int nRet = m_MyCamera->StopGrabbing();
-    if (MV_OK != nRet)
-    {
-        QMessageBox::critical(this, "error", "Stop grabbing fail!");
-        return;
-    }
-
-    // 注销图像回调
-    nRet = m_MyCamera->RegisterImageCallBack(nullptr, nullptr);
-    if (MV_OK != nRet)
-    {
-        QMessageBox::critical(this, "error", "Unregister Image CallBack fail!");
-        return;
-    }
-
-    // 释放队列
-    if (m_queue)
-    {
-        delete m_queue;
-        m_queue = nullptr;
-    }
-
-    m_StartGrabbing = false;
+    stopGrabbing();
 
     // 刷新参数显示
     on_GetPara_clicked();
-
-    // 停止采集后，恢复控件使能
-    setGrabbingControlsEnabled(false);
-    ui->SingleSoftTrigger->setEnabled(false);
 }
 
 /**
@@ -1168,7 +957,7 @@ void MainWindow::on_StopGrab_clicked()
  */
 void MainWindow::on_SingleSoftTrigger_clicked()
 {
-    if (!m_StartGrabbing)
+    if (!m_ProcessThread)
     {
         return;
     }
@@ -1413,7 +1202,7 @@ void MainWindow::on_AcquisitionLineRateEnableBox_stateChanged()
     bool enabled = ui->AcquisitionLineRateEnableBox->isChecked();
 
     // 根据复选框状态控制AcquisitionLineRateEdit的使能状态
-    ui->AcquisitionLineRateEdit->setEnabled(enabled && !m_StartGrabbing);
+    ui->AcquisitionLineRateEdit->setEnabled(enabled && !m_ProcessThread);
 
     int nRet = m_MyCamera->SetBoolValue("AcquisitionLineRateEnable", enabled);
     if (MV_OK != nRet)
@@ -1468,88 +1257,42 @@ void MainWindow::on_SelectModelPath_clicked()
         "TensorRT Engine Files (*.engine);;All Files (*.*)"
     );
 
-    if (!fileName.isEmpty())
+    if (fileName.isEmpty())
     {
-        // 更新 UI 显示
-        ui->ModelPathEdit->setText(QDir::toNativeSeparators(fileName));
-
-        // 更新成员变量
-        m_modelPath = fileName;
-
-        // 尝试重新加载模型
-        bool loadSuccess = false;
-        QFileInfo modelFile(m_modelPath);
-
-        if (modelFile.exists())
-        {
-            try
-            {
-                // 初始化推理选项
-                trtyolo::InferOption option;
-                option.enableSwapRB();  // 启用 RGB 通道交换（从 RGB 到 BGR）
-
-                // 创建检测模型（会自动替换旧模型）
-                m_yoloDetector = std::make_unique<trtyolo::DetectModel>(m_modelPath.toStdString(), option);
-
-                qDebug() << "YOLO 检测器重新加载成功，模型路径:" << m_modelPath;
-
-                // 设置 DetectCheckBox 可用且保持之前的选中状态
-                bool wasChecked = ui->DetectCheckBox->isChecked();
-                ui->DetectCheckBox->setEnabled(true);
-
-                // 如果之前是选中的，保持启用检测
-                if (wasChecked)
-                {
-                    ui->DetectCheckBox->setChecked(true);
-                    m_enableDefectDetection = true;
-                }
-
-                loadSuccess = true;
-
-                QMessageBox::information(this, "模型加载",
-                    "YOLO 模型加载成功！\n路径：" + m_modelPath);
-            }
-            catch (const std::exception& e)
-            {
-                qCritical() << "YOLO 检测器重新加载失败:" << e.what();
-                m_enableDefectDetection = false;
-
-                // 禁用 DetectCheckBox
-                ui->DetectCheckBox->setEnabled(false);
-                ui->DetectCheckBox->setChecked(false);
-
-                QMessageBox::critical(this, "模型加载失败",
-                    "YOLO 模型加载失败！\n错误信息：" + QString(e.what()));
-            }
-        }
-        else
-        {
-            qWarning() << "YOLO 模型文件不存在:" << m_modelPath;
-            m_enableDefectDetection = false;
-
-            // 禁用 DetectCheckBox
-            ui->DetectCheckBox->setEnabled(false);
-            ui->DetectCheckBox->setChecked(false);
-
-            QMessageBox::warning(this, "文件不存在",
-                "所选模型文件不存在！\n路径：" + m_modelPath);
-        }
-        updateModelStatus();
+        return;
     }
+
+    ui->ModelPathEdit->setText(QDir::toNativeSeparators(fileName));
+
+    // 采集期间此按钮已禁用，这里替换模型不会与推理线程冲突
+    QString error;
+    if (loadModel(fileName, &error))
+    {
+        // 保持之前的勾选状态
+        ui->DetectCheckBox->setEnabled(true);
+        QMessageBox::information(this, "模型加载", "YOLO 模型加载成功！\n路径：" + fileName);
+    }
+    else
+    {
+        ui->DetectCheckBox->setEnabled(false);
+        ui->DetectCheckBox->setChecked(false);
+        QMessageBox::critical(this, "模型加载失败", "YOLO 模型加载失败！\n路径：" + fileName + "\n" + error);
+    }
+    updateModelStatus();
 }
 
 /**
- * @brief 保存相机参数（功能未实现）
- * 预留接口，用于将当前参数保存到相机
+ * @brief 把相机当前参数保存到用户集 UserSet1（与"加载参数"对应）
  */
 void MainWindow::on_SavePara_clicked()
 {
-    // 功能暂未实现
-    // int nRet = m_MyCamera->SavePara();
-    // if (MV_OK != nRet)
-    // {
-    //     QMessageBox::critical(this, "error", "Save parameters fail!");
-    // }
+    const int nRet = m_MyCamera->SavePara();
+    if (MV_OK != nRet)
+    {
+        QMessageBox::critical(this, "error", QString("Save parameters fail! (0x%1)").arg(unsigned(nRet), 0, 16));
+        return;
+    }
+    QMessageBox::information(this, "success", "Parameters saved to UserSet1.");
 }
 
 /**
@@ -1577,28 +1320,12 @@ void MainWindow::on_LoadPara_clicked()
  */
 void MainWindow::on_DetectCheckBox_stateChanged(int state)
 {
-    if (state == Qt::Checked)
+    if (state == Qt::Checked && !m_yoloDetector)
     {
-        // 检查YOLO检测器是否已初始化
-        if (m_yoloDetector)
-        {
-            m_enableDefectDetection = true;
-            qDebug() << "缺陷检测已启用";
-        }
-        else
-        {
-            m_enableDefectDetection = false;
-            ui->DetectCheckBox->setChecked(false);
-            QMessageBox::warning(this, "缺陷检测",
-                "YOLO检测器未初始化！\n"
-                "请检查模型文件路径是否正确：\n" + m_modelPath);
-            qWarning() << "无法启用缺陷检测：YOLO检测器未初始化";
-        }
-    }
-    else
-    {
-        m_enableDefectDetection = false;
-        qDebug() << "缺陷检测已禁用";
+        ui->DetectCheckBox->setChecked(false);
+        QMessageBox::warning(this, "缺陷检测",
+            "YOLO检测器未初始化！\n"
+            "请检查模型文件路径是否正确：\n" + m_modelPath);
     }
 }
 
@@ -1617,28 +1344,6 @@ void MainWindow::updateDetectionTime(qint64 elapsedMs)
 }
 
 // ==================== 光源控制功能实现 ====================
-
-/**
- * @brief 初始化串口列表
- * 扫描系统中所有可用的串口并添加到下拉框中
- */
-void MainWindow::initLightPortList()
-{
-    ui->PortCombobox->clear();
-
-    // 扫描所有可用串口
-    QList<QSerialPortInfo> portList = QSerialPortInfo::availablePorts();
-    for (const QSerialPortInfo &info : portList)
-    {
-        ui->PortCombobox->addItem(info.portName());
-    }
-
-    // 如果没有检测到串口，显示提示信息
-    if (portList.isEmpty())
-    {
-        ui->PortCombobox->setCurrentText("未检测到可用串口");
-    }
-}
 
 /**
  * @brief 更新光源控件使能状态
@@ -1777,28 +1482,6 @@ void MainWindow::on_LightStatusGet_clicked()
 }
 
 // ==================== 传送带控制功能实现 ====================
-
-/**
- * @brief 初始化传送带串口列表
- * 扫描系统中所有可用的串口并添加到下拉框中
- */
-void MainWindow::initConveyorPortList()
-{
-    ui->ConveyorPortComboBox->clear();
-
-    // 扫描所有可用串口
-    QList<QSerialPortInfo> portList = QSerialPortInfo::availablePorts();
-    for (const QSerialPortInfo &info : portList)
-    {
-        ui->ConveyorPortComboBox->addItem(info.portName());
-    }
-
-    // 如果没有检测到串口，显示提示信息
-    if (portList.isEmpty())
-    {
-        ui->ConveyorPortComboBox->setCurrentText("未检测到可用串口");
-    }
-}
 
 /**
  * @brief 更新传送带控件使能状态

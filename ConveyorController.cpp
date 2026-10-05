@@ -1,6 +1,5 @@
 #include "ConveyorController.h"
-#include <QDateTime>
-#include <QTimer>
+#include <QDebug>
 
 /**
  * @brief 构造函数
@@ -9,9 +8,16 @@
 ConveyorController::ConveyorController(QObject *parent)
     : QObject(parent)
     , m_serialPort(nullptr)
-    , m_currentStatus("未连接")
+    , m_pendingTimer(nullptr)
+    , m_pendingAddress(0)
 {
     m_serialPort = new QSerialPort(this);
+
+    // 单次定时器：保存互锁释放之后待执行的第二步
+    m_pendingTimer = new QTimer(this);
+    m_pendingTimer->setSingleShot(true);
+    m_pendingTimer->setInterval(100);   // 延时100ms确保PLC处理完成
+    connect(m_pendingTimer, &QTimer::timeout, this, &ConveyorController::onPendingStepTimeout);
 
     // 连接串口信号
     connect(m_serialPort, &QSerialPort::readyRead, this, &ConveyorController::onSerialReadyRead);
@@ -64,6 +70,8 @@ bool ConveyorController::initSerial(const QString &portName, int baudRate)
 
 void ConveyorController::closeSerial()
 {
+    cancelPendingStep();
+
     if (m_serialPort && m_serialPort->isOpen())
     {
         m_serialPort->close();
@@ -80,68 +88,23 @@ bool ConveyorController::isSerialOpen() const
 
 bool ConveyorController::setForward()
 {
-    if (!isSerialOpen())
-    {
-        qDebug() << "ConveyorController: 设备未连接";
-        return false;
-    }
-
     // 根据梯形图逻辑：需要 X1(正转) 有效，且 X2(反转) 必须为 OFF
     // 先释放反转按钮（互锁），再触发正转
-    if (!writeCoil(ADDR_M2_REVERSE, false))
-    {
-        qDebug() << "ConveyorController: 释放反转信号失败";
-        return false;
-    }
-
-    // 延时100ms确保PLC处理完成
-    QTimer::singleShot(100, this, [this]() {
-        if (writeCoil(ADDR_M1_FORWARD, true))
-        {
-            updateStatus("正转");
-        }
-        else
-        {
-            qDebug() << "ConveyorController: 正转命令发送失败";
-        }
-    });
-
-    return true;
+    return startMotion(ADDR_M2_REVERSE, ADDR_M1_FORWARD, "正转");
 }
 
 bool ConveyorController::setReverse()
 {
-    if (!isSerialOpen())
-    {
-        qDebug() << "ConveyorController: 设备未连接";
-        return false;
-    }
-
     // 根据梯形图逻辑：需要 X2(反转) 有效，且 X1(正转) 必须为 OFF
     // 先释放正转按钮（互锁），再触发反转
-    if (!writeCoil(ADDR_M1_FORWARD, false))
-    {
-        qDebug() << "ConveyorController: 释放正转信号失败";
-        return false;
-    }
-
-    // 延时100ms确保PLC处理完成
-    QTimer::singleShot(100, this, [this]() {
-        if (writeCoil(ADDR_M2_REVERSE, true))
-        {
-            updateStatus("反转");
-        }
-        else
-        {
-            qDebug() << "ConveyorController: 反转命令发送失败";
-        }
-    });
-
-    return true;
+    return startMotion(ADDR_M1_FORWARD, ADDR_M2_REVERSE, "反转");
 }
 
 bool ConveyorController::setStop()
 {
+    // 任何新命令都必须先取消尚未执行的延时步骤，避免其覆盖停止
+    cancelPendingStep();
+
     if (!isSerialOpen())
     {
         qDebug() << "ConveyorController: 设备未连接";
@@ -165,33 +128,23 @@ bool ConveyorController::setStop()
     return success;
 }
 
-QString ConveyorController::getCurrentStatus() const
-{
-    return m_currentStatus;
-}
-
 // ==================== 内部工具函数 ====================
 
-QByteArray ConveyorController::buildAsciiFrame(quint8 functionCode, quint16 address, quint16 value)
+QByteArray ConveyorController::buildAsciiFrame(quint16 address, bool value)
 {
     QByteArray data;
 
-    // 添加从站地址
+    // 从站地址
     data.append(QByteArray::number(PLC_SLAVE_ID, 16).rightJustified(2, '0').toUpper());
-    // 添加功能码
-    data.append(QByteArray::number(functionCode, 16).rightJustified(2, '0').toUpper());
-
-    if (functionCode == 0x05) // 写单个线圈
-    {
-        // 添加地址 (4个十六进制字符)
-        data.append(QByteArray::number(address, 16).rightJustified(4, '0').toUpper());
-        // 添加值: FF00=ON, 0000=OFF
-        data.append(value ? "FF00" : "0000");
-    }
+    // 功能码 0x05：写单个线圈
+    data.append("05");
+    // 线圈地址 (4个十六进制字符)
+    data.append(QByteArray::number(address, 16).rightJustified(4, '0').toUpper());
+    // 值: FF00=ON, 0000=OFF
+    data.append(value ? "FF00" : "0000");
 
     // 计算LRC校验
-    QByteArray lrc = calculateLRC(data);
-    data.append(lrc);
+    data.append(calculateLRC(data));
 
     // 构建完整ASCII帧: : + 数据 + CR LF
     QByteArray frame;
@@ -223,74 +176,6 @@ QByteArray ConveyorController::calculateLRC(const QByteArray &data)
     return QByteArray::number(lrc, 16).rightJustified(2, '0').toUpper();
 }
 
-bool ConveyorController::parseAsciiResponse(const QByteArray &response, quint8 &slaveAddr, quint8 &functionCode, QByteArray &data)
-{
-    // 检查帧格式: 必须以':'开始，以CR LF结束
-    if (!response.startsWith(':') || !response.endsWith("\r\n"))
-    {
-        qDebug() << "ConveyorController: 无效的帧格式";
-        return false;
-    }
-
-    // 提取数据部分 (去掉':'和CR LF)
-    QByteArray frameData = response.mid(1, response.length() - 3);
-
-    if (frameData.length() < 4) // 至少需要地址+功能码+LRC
-    {
-        qDebug() << "ConveyorController: 帧长度过短";
-        return false;
-    }
-
-    // 提取LRC校验
-    QByteArray receivedLrc = frameData.right(2);
-    QByteArray dataWithoutLrc = frameData.left(frameData.length() - 2);
-
-    // 验证LRC
-    QByteArray calculatedLrc = calculateLRC(dataWithoutLrc);
-    if (receivedLrc != calculatedLrc)
-    {
-        qDebug() << "ConveyorController: LRC校验失败";
-        return false;
-    }
-
-    // 解析从站地址和功能码
-    bool ok;
-    slaveAddr = dataWithoutLrc.left(2).toUInt(&ok, 16);
-    if (!ok) return false;
-
-    functionCode = dataWithoutLrc.mid(2, 2).toUInt(&ok, 16);
-    if (!ok) return false;
-
-    // 提取数据部分
-    data = dataWithoutLrc.mid(4);
-
-    return true;
-}
-
-void ConveyorController::processResponse(const QByteArray &response)
-{
-    quint8 slaveAddr, functionCode;
-    QByteArray data;
-
-    if (!parseAsciiResponse(response, slaveAddr, functionCode, data))
-    {
-        qDebug() << "ConveyorController: 响应解析失败";
-        return;
-    }
-
-    if (slaveAddr != PLC_SLAVE_ID)
-    {
-        qDebug() << "ConveyorController: 从站地址不匹配:" << slaveAddr;
-        return;
-    }
-
-    // 0x05 写线圈响应 - 正常，不输出日志
-    if (functionCode != 0x05)
-    {
-        qDebug() << "ConveyorController: 未处理的功能码:" << functionCode;
-    }
-}
-
 bool ConveyorController::writeCoil(int address, bool value)
 {
     if (!m_serialPort || !m_serialPort->isOpen())
@@ -299,7 +184,7 @@ bool ConveyorController::writeCoil(int address, bool value)
         return false;
     }
 
-    QByteArray frame = buildAsciiFrame(0x05, address, value ? 0xFF00 : 0x0000);
+    QByteArray frame = buildAsciiFrame(address, value);
 
     if (m_serialPort->write(frame) == -1)
     {
@@ -310,42 +195,77 @@ bool ConveyorController::writeCoil(int address, bool value)
     return true;
 }
 
+bool ConveyorController::startMotion(int releaseAddress, int runAddress, const QString &status)
+{
+    // 任何新命令都必须先取消尚未执行的延时步骤
+    cancelPendingStep();
+
+    if (!isSerialOpen())
+    {
+        qDebug() << "ConveyorController: 设备未连接";
+        return false;
+    }
+
+    if (!writeCoil(releaseAddress, false))
+    {
+        qDebug() << "ConveyorController: 释放互锁信号失败";
+        return false;
+    }
+
+    m_pendingAddress = runAddress;
+    m_pendingStatus = status;
+    m_pendingTimer->start();
+
+    return true;
+}
+
+void ConveyorController::cancelPendingStep()
+{
+    m_pendingTimer->stop();
+}
+
 void ConveyorController::updateStatus(const QString &status)
 {
-    m_currentStatus = status;
     emit statusUpdated(status);
 }
 
 // ==================== 槽函数 ====================
 
+void ConveyorController::onPendingStepTimeout()
+{
+    if (writeCoil(m_pendingAddress, true))
+    {
+        updateStatus(m_pendingStatus);
+    }
+    else
+    {
+        qDebug() << "ConveyorController:" << m_pendingStatus << "命令发送失败";
+    }
+}
+
 void ConveyorController::onSerialReadyRead()
 {
-    m_receiveBuffer.append(m_serialPort->readAll());
-
-    // 查找完整的帧 (以CR LF结束)
-    int endIndex = m_receiveBuffer.indexOf("\r\n");
-    while (endIndex != -1)
-    {
-        QByteArray completeFrame = m_receiveBuffer.left(endIndex + 2);
-        m_receiveBuffer = m_receiveBuffer.mid(endIndex + 2);
-
-        processResponse(completeFrame);
-
-        // 查找下一个完整帧
-        endIndex = m_receiveBuffer.indexOf("\r\n");
-    }
+    // 不解析PLC回包，仅丢弃，防止输入缓冲区无限增长
+    m_serialPort->readAll();
 }
 
 void ConveyorController::onSerialError(QSerialPort::SerialPortError error)
 {
-    if (error != QSerialPort::NoError)
+    if (error == QSerialPort::NoError)
     {
-        qDebug() << "串口错误";
+        return;
+    }
 
-        if (error == QSerialPort::ResourceError)
+    qDebug() << "ConveyorController: 串口错误:" << m_serialPort->errorString();
+
+    if (error == QSerialPort::ResourceError)
+    {
+        // 资源错误（如串口被拔出），自动断开连接并通知外部
+        const bool wasOpen = m_serialPort->isOpen();
+        closeSerial();
+        if (wasOpen)
         {
-            // 资源错误（如串口被拔出），自动断开连接
-            closeSerial();
+            emit portClosed();
         }
     }
 }

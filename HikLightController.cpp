@@ -1,5 +1,6 @@
 ﻿#include "HikLightController.h"
-#include <QCoreApplication>
+#include <QDebug>
+#include <QElapsedTimer>
 
 /**
  * @brief 构造函数
@@ -69,11 +70,6 @@ void HikLightController::closeSerial()
     }
 }
 
-bool HikLightController::isSerialOpen() const
-{
-    return m_serialPort && m_serialPort->isOpen();
-}
-
 // ==================== 内部工具函数 ====================
 
 /**
@@ -88,6 +84,9 @@ bool HikLightController::sendCommand(const QString &command)
         qDebug() << "串口未打开";
         return false;
     }
+
+    // 丢弃超时后才到达的陈旧回包，避免被本次命令误读
+    m_serialPort->clear(QSerialPort::Input);
 
     // 转换为字节数组并发送
     QByteArray cmdData = command.toUtf8();
@@ -106,8 +105,12 @@ bool HikLightController::sendCommand(const QString &command)
 
 /**
  * @brief 等待串口响应数据
+ *
+ * 同步阻塞读取（不处理事件循环，避免UI槽函数重入）。
+ * 协议回复：查询亮度为"aXXXX"(5字节)，其余为单字符("A"/"H"/"L")，
+ * 回复可能分多块到达，读取直到回复完整或超时。
  * @param timeoutMs 超时时间(毫秒)，默认1000ms
- * @return 响应字符串，超时或失败返回空字符串
+ * @return 响应字符串，超时或失败返回已收到的部分(可能为空)
  */
 QString HikLightController::waitForResponse(int timeoutMs)
 {
@@ -117,81 +120,36 @@ QString HikLightController::waitForResponse(int timeoutMs)
     }
 
     QByteArray responseData;
-    int elapsed = 0;
-    const int waitStep = 10;
+    QElapsedTimer timer;
+    timer.start();
 
-    // 循环等待数据，每次等待10ms
-    while (elapsed < timeoutMs)
+    while (true)
     {
-        if (m_serialPort->waitForReadyRead(waitStep))
+        // 回复完整性判断：以'a'开头的查询回复为5字节，其余为1字节
+        if (!responseData.isEmpty())
         {
-            responseData.append(m_serialPort->readAll());
-
-            // 收到数据后再等待一小段时间，确保接收完整
-            QCoreApplication::processEvents();
-            if (m_serialPort->bytesAvailable() > 0)
+            const int expectedLen = (responseData.at(0) == 'a') ? 5 : 1;
+            if (responseData.size() >= expectedLen)
             {
-                responseData.append(m_serialPort->readAll());
+                break;
             }
+        }
+
+        const qint64 remaining = timeoutMs - timer.elapsed();
+        if (remaining <= 0 || !m_serialPort->waitForReadyRead(static_cast<int>(remaining)))
+        {
             break;
         }
-        elapsed += waitStep;
-        QCoreApplication::processEvents();
+        responseData.append(m_serialPort->readAll());
     }
 
-    // 转换为字符串并解析
     QString response = QString::fromUtf8(responseData).trimmed();
     if (!response.isEmpty())
     {
         qDebug() << "收到响应:" << response;
-        parseResponse(response);
     }
 
     return response;
-}
-
-/**
- * @brief 解析串口响应数据
- * 根据响应内容更新内部状态缓存
- * @param response 响应字符串
- */
-void HikLightController::parseResponse(const QString &response)
-{
-    if (response.isEmpty())
-    {
-        return;
-    }
-
-    // 解析各种响应格式（按照光源控制器协议文档）
-    if (response == "A")
-    {
-        // 亮度设置成功响应
-        qDebug() << "亮度设置成功";
-    }
-    else if (response.startsWith("a") && response.length() >= 5)
-    {
-        // 亮度查询响应：格式为"aXXXX"，XXXX为4位十进制亮度值
-        QString brightnessStr = response.mid(1, 4);
-        bool ok;
-        int brightness = brightnessStr.toInt(&ok);
-        if (ok && brightness >= 0 && brightness <= 255)
-        {
-            m_currentBrightness = brightness;
-            qDebug() << "读取亮度:" << brightness;
-        }
-    }
-    else if (response == "H")
-    {
-        // 光源常亮响应
-        m_isLightOn = true;
-        qDebug() << "光源已开启";
-    }
-    else if (response == "L")
-    {
-        // 光源常灭响应
-        m_isLightOn = false;
-        qDebug() << "光源已关闭";
-    }
 }
 
 // ==================== 光源控制 ====================
@@ -268,11 +226,6 @@ bool HikLightController::setLightOff()
 
 // ==================== 状态查询 ====================
 
-int HikLightController::getCurrentBrightness() const
-{
-    return m_currentBrightness;
-}
-
 /**
  * @brief 查询光源亮度
  * 发送查询指令"SA#"到光源控制器，从设备读取当前亮度值
@@ -282,11 +235,16 @@ int HikLightController::queryLightBrightness()
 {
     if (sendCommand("SA#"))
     {
+        // 亮度查询响应：格式为"aXXXX"，XXXX为4位十进制亮度值
         QString response = waitForResponse(1000);
-        if (response.startsWith("a"))
+        if (response.startsWith("a") && response.length() >= 5)
         {
-            // parseResponse函数已自动更新m_currentBrightness
-            return m_currentBrightness;
+            bool ok;
+            int brightness = response.mid(1, 4).toInt(&ok);
+            if (ok && brightness >= 0 && brightness <= 255)
+            {
+                m_currentBrightness = brightness;
+            }
         }
     }
 

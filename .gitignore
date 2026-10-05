@@ -19,12 +19,13 @@
 /qrc_*.cpp
 /*_predefs.h
 
-# 界面图标：只放行 png
+# 界面图标与样式表
 !/src/
 /src/*
 !/src/ui/
 /src/ui/*
 !/src/ui/*.png
+!/src/ui/app.qss
 
 # 默认品牌：只放行这四个文件；branding/local/ 为本地自定义品牌，不纳入版本库
 !/branding/

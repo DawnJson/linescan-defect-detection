@@ -12,7 +12,9 @@
 
 #include "mainwindow.h"
 #include "logindialog.h"
+#include "MvCamera.h"
 #include <QApplication>
+#include <QFile>
 
 /**
  * @brief 应用程序入口函数
@@ -25,6 +27,18 @@ int main(int argc, char *argv[])
     // 创建应用程序实例
     QApplication app(argc, argv);
 
+    // 初始化海康SDK
+    CMvCamera::InitSDK();
+
+    // 加载全局样式表
+    QFile qssFile(":/ui/app.qss");
+    if (qssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        app.setStyleSheet(QString::fromUtf8(qssFile.readAll()));
+        qssFile.close();
+    }
+
+    int exitCode = 0;
+
     // 先显示登录对话框
     LoginDialog loginDialog;
 
@@ -35,9 +49,10 @@ int main(int argc, char *argv[])
         mainWindow.show();
 
         // 进入事件循环
-        return app.exec();
+        exitCode = app.exec();
     }
 
-    // 登录失败或取消登录，直接退出程序
-    return 0;
+    // 释放海康SDK（主窗口已析构）
+    CMvCamera::FinalizeSDK();
+    return exitCode;
 }
