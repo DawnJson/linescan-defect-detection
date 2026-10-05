@@ -581,7 +581,7 @@
                       <item>
                        <widget class="QLabel" name="timeMetricTitle">
                         <property name="text">
-                         <string>单块检测耗时</string>
+                         <string>单板检测耗时</string>
                         </property>
                         <property name="role" stdset="0">
                          <string notr="true">metricTitle</string>
