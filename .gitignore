@@ -1,0 +1,42 @@
+# 白名单策略：默认忽略全部，只放行可公开的源码与资源。
+# 第三方 SDK/库、模型权重、图像、本地品牌与构建产物一律不提交（获取方式见 README）。
+/*
+
+!/.gitignore
+!/README.md
+!/HIKONCam.pro
+!/src.qrc
+!/*.cpp
+!/*.h
+!/*.ui
+
+# 在源码目录构建时 qmake/uic/moc/rcc 生成的文件
+/ui_*.h
+/moc_*.cpp
+/moc_*.h
+/qrc_*.cpp
+/*_predefs.h
+
+# 界面图标：只放行 png
+!/src/
+/src/*
+!/src/ui/
+/src/ui/*
+!/src/ui/*.png
+
+# 默认品牌：只放行这四个文件；branding/local/ 为本地自定义品牌，不纳入版本库
+!/branding/
+/branding/*
+!/branding/default/
+/branding/default/*
+!/branding/default/app.ico
+!/branding/default/logo.png
+!/branding/default/branding.ini
+!/branding/default/branding.qrc
+
+# README 截图
+!/docs/
+/docs/*
+!/docs/images/
+/docs/images/*
+!/docs/images/*.png

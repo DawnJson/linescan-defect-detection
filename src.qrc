@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/ui">
+        <file alias="arrow_down.png">src/ui/arrow_down.png</file>
+        <file alias="arrow_down_disabled.png">src/ui/arrow_down_disabled.png</file>
+        <file alias="nav_run.png">src/ui/nav_run.png</file>
+        <file alias="nav_run_sel.png">src/ui/nav_run_sel.png</file>
+        <file alias="nav_camera.png">src/ui/nav_camera.png</file>
+        <file alias="nav_camera_sel.png">src/ui/nav_camera_sel.png</file>
+        <file alias="nav_detect.png">src/ui/nav_detect.png</file>
+        <file alias="nav_detect_sel.png">src/ui/nav_detect_sel.png</file>
+        <file alias="nav_device.png">src/ui/nav_device.png</file>
+        <file alias="nav_device_sel.png">src/ui/nav_device_sel.png</file>
+        <file alias="check.png">src/ui/check.png</file>
+    </qresource>
+</RCC>

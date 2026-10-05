@@ -1,0 +1,2467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1480</width>
+    <height>920</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1180</width>
+    <height>760</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>表面缺陷检测系统</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">* {
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei";
+}
+QMainWindow, QDialog {
+    background-color: #e9edf2;
+}
+QWidget {
+    color: #1e2733;
+    font-size: 10.5pt;
+}
+QToolTip {
+    color: #1e2733;
+    background-color: #ffffff;
+    border: 1px solid #c5cdd6;
+    padding: 4px;
+}
+
+/* ================= 底部状态条 ================= */
+QFrame#statusStrip {
+    background-color: #ffffff;
+    border: none;
+    border-top: 1px solid #d9dfe6;
+}
+QFrame#statusStrip QLabel {
+    background-color: transparent;
+    font-size: 9.5pt;
+}
+QFrame[chip="true"] {
+    background-color: transparent;
+    border: none;
+}
+QFrame[chip="true"] QLabel {
+    background-color: transparent;
+}
+QLabel[role="chipTitle"] {
+    color: #7b8794;
+    font-size: 9.5pt;
+}
+QLabel[role="chipValue"] {
+    font-weight: bold;
+    color: #95a0ac;
+}
+QLabel[state="ok"]    { color: #16a34a; }
+QLabel[state="busy"]  { color: #2563eb; }
+QLabel[state="warn"]  { color: #d97706; }
+QLabel[state="off"]   { color: #95a0ac; }
+QLabel[state="error"] { color: #dc2626; }
+
+/* ================= 导航栏 ================= */
+QFrame#navRail {
+    background-color: #ffffff;
+    border: none;
+    border-right: 1px solid #d9dfe6;
+}
+QListWidget#navList {
+    background-color: transparent;
+    border: none;
+    outline: 0;
+}
+QListWidget#navList::item {
+    color: #52606d;
+    border-radius: 6px;
+    margin: 4px 0px;
+    padding: 8px 0px 6px 0px;
+}
+QListWidget#navList::item:hover {
+    background-color: #f2f6fd;
+    color: #1d4ed8;
+}
+QListWidget#navList::item:selected {
+    background-color: #e8effd;
+    color: #1d4ed8;
+    font-weight: bold;
+}
+QLabel#versionLabel {
+    color: #a3adb8;
+    font-size: 8.5pt;
+    background-color: transparent;
+}
+
+/* ================= 卡片 ================= */
+QFrame[card="true"] {
+    background-color: #ffffff;
+    border: 1px solid #d9dfe6;
+    border-radius: 6px;
+}
+QFrame[card="true"] &gt; QLabel, QFrame[metric="true"] &gt; QLabel {
+    background-color: transparent;
+}
+QLabel[role="cardTitle"] {
+    font-size: 11.5pt;
+    font-weight: bold;
+}
+QLabel[role="hint"] {
+    color: #7b8794;
+    font-size: 9pt;
+}
+QFrame[metric="true"] {
+    background-color: #f4f6f9;
+    border: 1px solid #e1e6ec;
+    border-left: 3px solid #2563eb;
+    border-radius: 4px;
+}
+QLabel[role="metricTitle"] {
+    color: #66737f;
+    font-size: 9.5pt;
+}
+QLabel[role="metricValue"] {
+    color: #1e2733;
+    font-size: 20pt;
+    font-weight: bold;
+}
+QFrame#toolSeparator {
+    background-color: #d9dfe6;
+    border: none;
+}
+QLabel#PicLabel {
+    background-color: #f4f6f9;
+    border: 1px dashed #c5cdd6;
+    border-radius: 4px;
+    color: #8a94a0;
+    font-size: 11pt;
+}
+
+/* ================= 侧面板 / 分组 ================= */
+QStackedWidget#pageStack, QStackedWidget#pageStack &gt; QWidget,
+QScrollArea, QScrollArea &gt; QWidget &gt; QWidget {
+    background-color: transparent;
+    border: none;
+}
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #d9dfe6;
+    border-radius: 6px;
+    margin-top: 26px;
+    padding: 10px 12px 12px 12px;
+    font-size: 11pt;
+    font-weight: bold;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 4px;
+    padding: 0px 2px 6px 2px;
+    color: #1e2733;
+    background-color: transparent;
+}
+QGroupBox QLabel, QGroupBox QCheckBox, QGroupBox QLineEdit, QGroupBox QComboBox,
+QGroupBox QPushButton, QGroupBox QToolButton, QGroupBox QListWidget {
+    font-size: 10.5pt;
+    font-weight: normal;
+}
+QGroupBox QLabel[role="hint"] {
+    font-size: 9pt;
+}
+
+/* ================= 按钮 ================= */
+QPushButton, QToolButton {
+    background-color: #ffffff;
+    color: #1e2733;
+    border: 1px solid #c5cdd6;
+    border-radius: 4px;
+    padding: 6px 14px;
+    min-height: 22px;
+}
+QPushButton:hover, QToolButton:hover {
+    background-color: #f2f6fd;
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
+QPushButton:pressed, QToolButton:pressed {
+    background-color: #e1eafb;
+}
+QPushButton:disabled, QToolButton:disabled {
+    background-color: #f1f3f6;
+    color: #a3adb8;
+    border-color: #e0e5ea;
+}
+QPushButton[primary="true"] {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+    font-weight: bold;
+}
+QPushButton[primary="true"]:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #ffffff;
+}
+QPushButton[primary="true"]:pressed {
+    background-color: #1e40af;
+}
+QPushButton[primary="true"]:disabled {
+    background-color: #b9cbf4;
+    border-color: #b9cbf4;
+    color: #f3f6fd;
+}
+QPushButton[danger="true"] {
+    color: #c62828;
+    border-color: #e5b5b5;
+}
+QPushButton[danger="true"]:hover {
+    background-color: #fdf1f1;
+    border-color: #c62828;
+    color: #c62828;
+}
+QPushButton[danger="true"]:disabled {
+    color: #a3adb8;
+    border-color: #e0e5ea;
+    background-color: #f1f3f6;
+}
+
+/* ================= 输入 ================= */
+QLineEdit, QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #c5cdd6;
+    border-radius: 4px;
+    padding: 5px 8px;
+    min-height: 22px;
+    selection-background-color: #2563eb;
+}
+QLineEdit:focus, QComboBox:focus, QComboBox:on {
+    border-color: #2563eb;
+}
+QLineEdit:disabled, QComboBox:disabled {
+    background-color: #f1f3f6;
+    color: #95a0ac;
+    border-color: #e0e5ea;
+}
+QLineEdit[readOnlyLook="true"] {
+    background-color: #f4f6f9;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 26px;
+    border: none;
+}
+QComboBox::down-arrow {
+    image: url(:/ui/arrow_down.png);
+    width: 12px;
+    height: 8px;
+}
+QComboBox::down-arrow:disabled {
+    image: url(:/ui/arrow_down_disabled.png);
+}
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    border: 1px solid #c5cdd6;
+    outline: 0;
+    selection-background-color: #e1eafb;
+    selection-color: #1d4ed8;
+    padding: 2px;
+}
+
+/* ================= 复选框 ================= */
+QCheckBox {
+    spacing: 8px;
+    background-color: transparent;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #b3bdc8;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+QCheckBox::indicator:hover {
+    border-color: #2563eb;
+}
+QCheckBox::indicator:checked {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    image: url(:/ui/check.png);
+}
+QCheckBox::indicator:disabled {
+    background-color: #eceff3;
+    border-color: #d6dce3;
+}
+QCheckBox:disabled {
+    color: #a3adb8;
+}
+
+/* ================= 列表 ================= */
+QListWidget#DefectListWidget {
+    background-color: #ffffff;
+    border: 1px solid #d9dfe6;
+    border-radius: 4px;
+    padding: 4px;
+    outline: 0;
+}
+QListWidget#DefectListWidget::item {
+    padding: 6px 6px;
+    border-bottom: 1px solid #eef1f4;
+}
+QListWidget#DefectListWidget::item:selected {
+    background-color: #e1eafb;
+    color: #1d4ed8;
+}
+
+/* ================= 滚动条 ================= */
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical {
+    background: #c3cbd4;
+    border-radius: 3px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #a3adb8;
+}
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:horizontal {
+    background: #c3cbd4;
+    border-radius: 3px;
+    min-width: 30px;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0px;
+    height: 0px;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+
+/* ================= 登录 ================= */
+QFrame#brandPanel {
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f3f7fe, stop:1 #e1eafb);
+    border: none;
+    border-right: 1px solid #d5dff0;
+}
+QFrame#brandPanel QLabel {
+    background-color: transparent;
+    color: #1e2733;
+}
+QLabel#brandTitle {
+    font-size: 16pt;
+    font-weight: bold;
+}
+QLabel#brandTagline {
+    color: #52606d;
+    font-size: 10pt;
+}
+QLabel#brandFooter {
+    color: #7b8794;
+    font-size: 9pt;
+}
+QFrame#formPanel {
+    background-color: #ffffff;
+    border: none;
+}
+QLabel#LoginTitle {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #1e2733;
+}
+QLabel#loginHint {
+    color: #7b8794;
+    font-size: 9.5pt;
+}
+QFrame#formPanel QLineEdit, QFrame#formPanel QComboBox {
+    min-height: 28px;
+    font-size: 11pt;
+}
+QPushButton#LoginBtn {
+    min-height: 32px;
+    font-size: 12pt;
+}</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="rootLayout">
+    <property name="spacing">
+     <number>0</number>
+    </property>
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <layout class="QHBoxLayout" name="bodyLayout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="navRail">
+        <property name="minimumSize">
+         <size>
+          <width>96</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>96</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="navRailLayout">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>8</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>8</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QListWidget" name="navList">
+           <property name="focusPolicy">
+            <enum>Qt::FocusPolicy::NoFocus</enum>
+           </property>
+           <property name="frameShape">
+            <enum>QFrame::Shape::NoFrame</enum>
+           </property>
+           <property name="verticalScrollBarPolicy">
+            <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+           </property>
+           <property name="horizontalScrollBarPolicy">
+            <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+           </property>
+           <property name="iconSize">
+            <size>
+             <width>28</width>
+             <height>28</height>
+            </size>
+           </property>
+           <property name="movement">
+            <enum>QListView::Movement::Static</enum>
+           </property>
+           <property name="flow">
+            <enum>QListView::Flow::TopToBottom</enum>
+           </property>
+           <property name="wrapping">
+            <bool>false</bool>
+           </property>
+           <property name="viewMode">
+            <enum>QListView::ViewMode::IconMode</enum>
+           </property>
+           <property name="gridSize">
+            <size>
+             <width>80</width>
+             <height>78</height>
+            </size>
+           </property>
+           <property name="uniformItemSizes">
+            <bool>true</bool>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="currentRow">
+            <number>0</number>
+           </property>
+           <item>
+            <property name="text">
+             <string>运行监控</string>
+            </property>
+            <property name="icon">
+             <iconset resource="src.qrc">
+              <normaloff>:/ui/nav_run.png</normaloff>
+              <selectedoff>:/ui/nav_run_sel.png</selectedoff>
+              <activeoff>:/ui/nav_run.png</activeoff>
+             </iconset>
+            </property>
+            <property name="textAlignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>相机参数</string>
+            </property>
+            <property name="icon">
+             <iconset resource="src.qrc">
+              <normaloff>:/ui/nav_camera.png</normaloff>
+              <selectedoff>:/ui/nav_camera_sel.png</selectedoff>
+              <activeoff>:/ui/nav_camera.png</activeoff>
+             </iconset>
+            </property>
+            <property name="textAlignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>检测配置</string>
+            </property>
+            <property name="icon">
+             <iconset resource="src.qrc">
+              <normaloff>:/ui/nav_detect.png</normaloff>
+              <selectedoff>:/ui/nav_detect_sel.png</selectedoff>
+              <activeoff>:/ui/nav_detect.png</activeoff>
+             </iconset>
+            </property>
+            <property name="textAlignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>外设控制</string>
+            </property>
+            <property name="icon">
+             <iconset resource="src.qrc">
+              <normaloff>:/ui/nav_device.png</normaloff>
+              <selectedoff>:/ui/nav_device_sel.png</selectedoff>
+              <activeoff>:/ui/nav_device.png</activeoff>
+             </iconset>
+            </property>
+            <property name="textAlignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="versionLabel">
+           <property name="text">
+            <string>V2.0</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="contentLayout">
+        <property name="spacing">
+         <number>12</number>
+        </property>
+        <property name="leftMargin">
+         <number>16</number>
+        </property>
+        <property name="topMargin">
+         <number>14</number>
+        </property>
+        <property name="rightMargin">
+         <number>16</number>
+        </property>
+        <property name="bottomMargin">
+         <number>14</number>
+        </property>
+        <item>
+         <widget class="QFrame" name="cameraToolbar">
+          <property name="card" stdset="0">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="cameraToolbarLayout">
+           <property name="spacing">
+            <number>10</number>
+           </property>
+           <property name="leftMargin">
+            <number>14</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>14</number>
+           </property>
+           <property name="bottomMargin">
+            <number>10</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="DeviceStrLabel">
+             <property name="text">
+              <string>相机设备</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="DeviceStrBox">
+             <property name="minimumSize">
+              <size>
+               <width>260</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="SearchDevice">
+             <property name="text">
+              <string>查找设备</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="DeviceOpen">
+             <property name="text">
+              <string>打开设备</string>
+             </property>
+             <property name="primary" stdset="0">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="DeviceClose">
+             <property name="text">
+              <string>关闭设备</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="toolSeparator">
+             <property name="minimumSize">
+              <size>
+               <width>1</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>1</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="frameShape">
+              <enum>QFrame::Shape::NoFrame</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="StartGrab">
+             <property name="text">
+              <string>开始采集</string>
+             </property>
+             <property name="primary" stdset="0">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="StopGrab">
+             <property name="text">
+              <string>停止采集</string>
+             </property>
+             <property name="danger" stdset="0">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="SingleSoftTrigger">
+             <property name="text">
+              <string>软触发一次</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="workspaceLayout">
+          <property name="spacing">
+           <number>14</number>
+          </property>
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QFrame" name="imageCard">
+            <property name="card" stdset="0">
+             <bool>true</bool>
+            </property>
+            <layout class="QVBoxLayout" name="imageCardLayout" stretch="0,1">
+             <property name="spacing">
+              <number>10</number>
+             </property>
+             <property name="leftMargin">
+              <number>14</number>
+             </property>
+             <property name="topMargin">
+              <number>12</number>
+             </property>
+             <property name="rightMargin">
+              <number>14</number>
+             </property>
+             <property name="bottomMargin">
+              <number>14</number>
+             </property>
+             <item>
+              <layout class="QHBoxLayout" name="imageHeaderLayout">
+               <property name="spacing">
+                <number>8</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="imageTitle">
+                 <property name="text">
+                  <string>实时图像</string>
+                 </property>
+                 <property name="role" stdset="0">
+                  <string notr="true">cardTitle</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="spacer_2">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLabel" name="imageHint">
+                 <property name="text">
+                  <string>线阵相机拼接图像，检测结果实时叠加</string>
+                 </property>
+                 <property name="role" stdset="0">
+                  <string notr="true">hint</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QLabel" name="PicLabel">
+               <property name="text">
+                <string>暂无图像
+打开相机并开始采集后在此显示</string>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>320</width>
+                 <height>240</height>
+                </size>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QStackedWidget" name="pageStack">
+            <property name="currentIndex">
+             <number>0</number>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>430</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>430</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <widget class="QWidget" name="runPage">
+             <layout class="QVBoxLayout" name="runPageLayout">
+              <property name="spacing">
+               <number>12</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QFrame" name="detectSummaryCard">
+                <property name="card" stdset="0">
+                 <bool>true</bool>
+                </property>
+                <layout class="QVBoxLayout" name="detectSummaryCardLayout">
+                 <property name="spacing">
+                  <number>10</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>16</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>14</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>16</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="detectSummaryTitle">
+                   <property name="text">
+                    <string>检测概况</string>
+                   </property>
+                   <property name="role" stdset="0">
+                    <string notr="true">cardTitle</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="DetectCheckBox">
+                   <property name="text">
+                    <string>启用缺陷检测</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="detectSwitchHint">
+                   <property name="text">
+                    <string>模型加载成功后可用；关闭后仅采集与保存图像，不做推理。</string>
+                   </property>
+                   <property name="role" stdset="0">
+                    <string notr="true">hint</string>
+                   </property>
+                   <property name="wordWrap">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <layout class="QHBoxLayout" name="metricLayout">
+                   <property name="spacing">
+                    <number>10</number>
+                   </property>
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QFrame" name="timeMetric">
+                     <property name="metric" stdset="0">
+                      <bool>true</bool>
+                     </property>
+                     <layout class="QVBoxLayout" name="timeMetricLayout">
+                      <property name="spacing">
+                       <number>2</number>
+                      </property>
+                      <property name="leftMargin">
+                       <number>14</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>10</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>14</number>
+                      </property>
+                      <property name="bottomMargin">
+                       <number>12</number>
+                      </property>
+                      <item>
+                       <widget class="QLabel" name="timeMetricTitle">
+                        <property name="text">
+                         <string>单块检测耗时</string>
+                        </property>
+                        <property name="role" stdset="0">
+                         <string notr="true">metricTitle</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="DetectTimeLabel">
+                        <property name="text">
+                         <string>--</string>
+                        </property>
+                        <property name="role" stdset="0">
+                         <string notr="true">metricValue</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="countMetric">
+                     <property name="metric" stdset="0">
+                      <bool>true</bool>
+                     </property>
+                     <layout class="QVBoxLayout" name="countMetricLayout">
+                      <property name="spacing">
+                       <number>2</number>
+                      </property>
+                      <property name="leftMargin">
+                       <number>14</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>10</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>14</number>
+                      </property>
+                      <property name="bottomMargin">
+                       <number>12</number>
+                      </property>
+                      <item>
+                       <widget class="QLabel" name="countMetricTitle">
+                        <property name="text">
+                         <string>本板缺陷数</string>
+                        </property>
+                        <property name="role" stdset="0">
+                         <string notr="true">metricTitle</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="DefectCountLabel">
+                        <property name="text">
+                         <string>0</string>
+                        </property>
+                        <property name="role" stdset="0">
+                         <string notr="true">metricValue</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QFrame" name="defectListCard">
+                <property name="card" stdset="0">
+                 <bool>true</bool>
+                </property>
+                <layout class="QVBoxLayout" name="defectListCardLayout">
+                 <property name="spacing">
+                  <number>10</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>16</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>14</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>16</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="defectListTitle">
+                   <property name="text">
+                    <string>缺陷列表</string>
+                   </property>
+                   <property name="role" stdset="0">
+                    <string notr="true">cardTitle</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QListWidget" name="DefectListWidget">
+                   <property name="alternatingRowColors">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="cameraPage">
+             <layout class="QVBoxLayout" name="cameraPageOuter">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QScrollArea" name="cameraPageScroll">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::NoFrame</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="widgetResizable">
+                 <bool>true</bool>
+                </property>
+                <widget class="QWidget" name="cameraPageContent">
+                 <layout class="QVBoxLayout" name="cameraPageLayout">
+                  <property name="spacing">
+                   <number>4</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>6</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QGroupBox" name="triggerGroup">
+                    <property name="title">
+                     <string>触发设置</string>
+                    </property>
+                    <layout class="QFormLayout" name="triggerGroupLayout">
+                     <property name="spacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="labelAlignment">
+                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="TriggerSelectLabel">
+                       <property name="text">
+                        <string>触发选项：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QComboBox" name="TriggerSelectBox" />
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QLabel" name="TriggerModeLabel">
+                       <property name="text">
+                        <string>触发开关：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QComboBox" name="TriggerModeBox" />
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="TriggerSourceLabel">
+                       <property name="text">
+                        <string>触发源：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="1">
+                      <widget class="QComboBox" name="TriggerSourceBox" />
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="imageParamGroup">
+                    <property name="title">
+                     <string>图像参数</string>
+                    </property>
+                    <layout class="QGridLayout" name="imageParamGroupLayout" columnstretch="0,1,0,1">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="WidthLabel">
+                       <property name="text">
+                        <string>宽度：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QLineEdit" name="WidthEdit" />
+                     </item>
+                     <item row="0" column="2">
+                      <widget class="QLabel" name="HeightLabel">
+                       <property name="text">
+                        <string>高度：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="3">
+                      <widget class="QLineEdit" name="HeightEdit" />
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QLabel" name="ExposureLabel">
+                       <property name="text">
+                        <string>曝光：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QLineEdit" name="ExposureEdit" />
+                     </item>
+                     <item row="1" column="2">
+                      <widget class="QLabel" name="AcquisitionBurstFrameCountLabel">
+                       <property name="text">
+                        <string>触发帧数：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="3">
+                      <widget class="QLineEdit" name="AcquisitionBurstFrameCountEdit" />
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="PreampGainLabel">
+                       <property name="text">
+                        <string>模拟增益：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="1" colspan="3">
+                      <widget class="QComboBox" name="PreampGainBox" />
+                     </item>
+                     <item row="3" column="0">
+                      <widget class="QLabel" name="DigitalGainLabel">
+                       <property name="text">
+                        <string>数字增益：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="3" column="1" colspan="3">
+                      <widget class="QLineEdit" name="DigitalGainEdit" />
+                     </item>
+                     <item row="4" column="0">
+                      <widget class="QLabel" name="PixelFormatLabel">
+                       <property name="text">
+                        <string>像素格式：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="4" column="1" colspan="3">
+                      <widget class="QComboBox" name="PixelFormatBox" />
+                     </item>
+                     <item row="5" column="0">
+                      <widget class="QLabel" name="HBFormatLabel">
+                       <property name="text">
+                        <string>HB模式：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="5" column="1" colspan="3">
+                      <widget class="QComboBox" name="HBFormatBox" />
+                     </item>
+                     <item row="6" column="0">
+                      <widget class="QCheckBox" name="AcquisitionLineRateEnableBox">
+                       <property name="text">
+                        <string>行频使能</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="6" column="1" colspan="3">
+                      <widget class="QLineEdit" name="AcquisitionLineRateEdit" />
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="feedbackGroup">
+                    <property name="title">
+                     <string>实时反馈</string>
+                    </property>
+                    <layout class="QGridLayout" name="feedbackGroupLayout" columnstretch="0,1,0,1">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="ResultLineRateLabel">
+                       <property name="text">
+                        <string>实际行频：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QLineEdit" name="ResultLineRateEdit">
+                       <property name="readOnlyLook" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="2">
+                      <widget class="QLabel" name="ResultFrameRateLabel">
+                       <property name="text">
+                        <string>实际帧率：</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="3">
+                      <widget class="QLineEdit" name="ResultFrameRateEdit">
+                       <property name="readOnlyLook" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="paramOpGroup">
+                    <property name="title">
+                     <string>参数操作</string>
+                    </property>
+                    <layout class="QGridLayout" name="paramOpGroupLayout">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QPushButton" name="GetPara">
+                       <property name="text">
+                        <string>参数获取</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QPushButton" name="SetPara">
+                       <property name="text">
+                        <string>参数设置</string>
+                       </property>
+                       <property name="primary" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QPushButton" name="SavePara">
+                       <property name="text">
+                        <string>保存用户集</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QPushButton" name="LoadPara">
+                       <property name="text">
+                        <string>加载用户集</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="savePathGroup">
+                    <property name="title">
+                     <string>图像保存</string>
+                    </property>
+                    <layout class="QVBoxLayout" name="savePathGroupLayout">
+                     <property name="spacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item>
+                      <layout class="QHBoxLayout" name="savePathRow">
+                       <property name="spacing">
+                        <number>8</number>
+                       </property>
+                       <property name="leftMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="rightMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="bottomMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QLabel" name="SavePathLabel">
+                         <property name="text">
+                          <string>保存路径</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="imgSavePathEdit">
+                         <property name="text">
+                          <string>.\Image</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QToolButton" name="SelectSavePath">
+                         <property name="text">
+                          <string>...</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item>
+                      <widget class="QLabel" name="savePathHint">
+                       <property name="text">
+                        <string>每块板材拼接完成后保存到该目录。</string>
+                       </property>
+                       <property name="role" stdset="0">
+                        <string notr="true">hint</string>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="spacer_3">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Vertical</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>10</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="detectPage">
+             <layout class="QVBoxLayout" name="detectPageOuter">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QScrollArea" name="detectPageScroll">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::NoFrame</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="widgetResizable">
+                 <bool>true</bool>
+                </property>
+                <widget class="QWidget" name="detectPageContent">
+                 <layout class="QVBoxLayout" name="detectPageLayout">
+                  <property name="spacing">
+                   <number>4</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>6</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QGroupBox" name="modelGroup">
+                    <property name="title">
+                     <string>推理模型</string>
+                    </property>
+                    <layout class="QVBoxLayout" name="modelGroupLayout">
+                     <property name="spacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item>
+                      <widget class="QLabel" name="ModelPathLabel">
+                       <property name="text">
+                        <string>TensorRT 引擎文件 (.engine)</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <layout class="QHBoxLayout" name="modelPathRow">
+                       <property name="spacing">
+                        <number>8</number>
+                       </property>
+                       <property name="leftMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="rightMargin">
+                        <number>0</number>
+                       </property>
+                       <property name="bottomMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QLineEdit" name="ModelPathEdit">
+                         <property name="text">
+                          <string>.\src\best.engine</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QToolButton" name="SelectModelPath">
+                         <property name="text">
+                          <string>...</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item>
+                      <widget class="QLabel" name="modelHint">
+                       <property name="text">
+                        <string>选择新文件后立即重新加载模型，结果显示在底部状态条“检测模型”。</string>
+                       </property>
+                       <property name="role" stdset="0">
+                        <string notr="true">hint</string>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="tileGroup">
+                    <property name="title">
+                     <string>切片推理</string>
+                    </property>
+                    <layout class="QFormLayout" name="tileGroupLayout">
+                     <property name="spacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="labelAlignment">
+                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="TileSizeLabel">
+                       <property name="text">
+                        <string>切片尺寸：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QComboBox" name="TileSizeComboBox">
+                       <item>
+                        <property name="text">
+                         <string>1024×1024</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>512×512</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>2048×2048</string>
+                        </property>
+                       </item>
+                      </widget>
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QLabel" name="OverlapRatioLabel">
+                       <property name="text">
+                        <string>切片重复：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QComboBox" name="OverlapRatioCombobox">
+                       <item>
+                        <property name="text">
+                         <string>5%</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>10%</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>20%</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>30%</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>40%</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>50%</string>
+                        </property>
+                       </item>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="resultGroup">
+                    <property name="title">
+                     <string>结果处理</string>
+                    </property>
+                    <layout class="QGridLayout" name="resultGroupLayout" columnstretch="0,1">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QCheckBox" name="DefectFilterBox">
+                       <property name="text">
+                        <string>按面积过滤</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QComboBox" name="FilterSizeCombobox">
+                       <item>
+                        <property name="text">
+                         <string>500</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>300</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>400</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>600</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>900</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>1200</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>1500</string>
+                        </property>
+                       </item>
+                      </widget>
+                     </item>
+                     <item row="1" column="0" colspan="2">
+                      <widget class="QLabel" name="filterHint">
+                       <property name="text">
+                        <string>勾选后丢弃面积小于所选阈值（像素）的缺陷。</string>
+                       </property>
+                       <property name="role" stdset="0">
+                        <string notr="true">hint</string>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="0" colspan="2">
+                      <widget class="QCheckBox" name="SaveDefectCheckBox">
+                       <property name="text">
+                        <string>保存缺陷信息 (CSV)</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="spacer_4">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Vertical</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>10</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="devicePage">
+             <layout class="QVBoxLayout" name="devicePageOuter">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QScrollArea" name="devicePageScroll">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::NoFrame</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="widgetResizable">
+                 <bool>true</bool>
+                </property>
+                <widget class="QWidget" name="devicePageContent">
+                 <layout class="QVBoxLayout" name="devicePageLayout">
+                  <property name="spacing">
+                   <number>4</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>6</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QGroupBox" name="plcGroup">
+                    <property name="title">
+                     <string>PLC 通信</string>
+                    </property>
+                    <layout class="QFormLayout" name="plcGroupLayout">
+                     <property name="spacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="labelAlignment">
+                      <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="IPLabel">
+                       <property name="text">
+                        <string>PLC IP：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QLineEdit" name="IPEdit">
+                       <property name="text">
+                        <string>192.168.2.1</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QLabel" name="RackLabel">
+                       <property name="text">
+                        <string>Rack：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QLineEdit" name="RackEdit">
+                       <property name="text">
+                        <string>0</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="SlotLabel">
+                       <property name="text">
+                        <string>Slot：</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="1">
+                      <widget class="QLineEdit" name="SlotEdit">
+                       <property name="text">
+                        <string>1</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="3" column="0" colspan="2">
+                      <widget class="QLabel" name="plcHint">
+                       <property name="text">
+                        <string>开始采集时按以上参数自动连接 PLC。</string>
+                       </property>
+                       <property name="role" stdset="0">
+                        <string notr="true">hint</string>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="lightGroup">
+                    <property name="title">
+                     <string>光源控制器</string>
+                    </property>
+                    <layout class="QGridLayout" name="lightGroupLayout" columnstretch="0,1,1">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="PortLabel">
+                       <property name="text">
+                        <string>串口</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1" colspan="2">
+                      <widget class="QComboBox" name="PortCombobox" />
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QPushButton" name="PortConnect">
+                       <property name="text">
+                        <string>连接</string>
+                       </property>
+                       <property name="primary" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="2">
+                      <widget class="QPushButton" name="PortDisconnect">
+                       <property name="text">
+                        <string>断开</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="lightSwitchLabel">
+                       <property name="text">
+                        <string>开关</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="1">
+                      <widget class="QPushButton" name="LightOn">
+                       <property name="text">
+                        <string>开灯</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="2">
+                      <widget class="QPushButton" name="LightOff">
+                       <property name="text">
+                        <string>关灯</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="3" column="0">
+                      <widget class="QLabel" name="lightnessLabel">
+                       <property name="text">
+                        <string>亮度</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="3" column="1">
+                      <widget class="QLineEdit" name="LightnessEdit">
+                       <property name="placeholderText">
+                        <string>0 - 255</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="3" column="2">
+                      <widget class="QPushButton" name="LightnessSet">
+                       <property name="text">
+                        <string>设置亮度</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="4" column="1" colspan="2">
+                      <widget class="QPushButton" name="LightStatusGet">
+                       <property name="text">
+                        <string>读取状态</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QGroupBox" name="conveyorGroup">
+                    <property name="title">
+                     <string>传送带</string>
+                    </property>
+                    <layout class="QGridLayout" name="conveyorGroupLayout" columnstretch="0,1,1,1">
+                     <property name="horizontalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="verticalSpacing">
+                      <number>10</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>14</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>14</number>
+                     </property>
+                     <item row="0" column="0">
+                      <widget class="QLabel" name="ConveyorPortLabel">
+                       <property name="text">
+                        <string>串口</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1" colspan="3">
+                      <widget class="QComboBox" name="ConveyorPortComboBox" />
+                     </item>
+                     <item row="1" column="1" colspan="2">
+                      <widget class="QPushButton" name="ConConnect">
+                       <property name="text">
+                        <string>连接</string>
+                       </property>
+                       <property name="primary" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="3">
+                      <widget class="QPushButton" name="ConDisconnect">
+                       <property name="text">
+                        <string>断开</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="0">
+                      <widget class="QLabel" name="conveyorRunLabel">
+                       <property name="text">
+                        <string>运行</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="1">
+                      <widget class="QPushButton" name="ConForward">
+                       <property name="text">
+                        <string>正转</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="2">
+                      <widget class="QPushButton" name="ConReverse">
+                       <property name="text">
+                        <string>反转</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="2" column="3">
+                      <widget class="QPushButton" name="ConStop">
+                       <property name="text">
+                        <string>停止</string>
+                       </property>
+                       <property name="danger" stdset="0">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="spacer_5">
+                    <property name="orientation">
+                     <enum>Qt::Orientation::Vertical</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>10</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </widget>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QFrame" name="statusStrip">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>32</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>32</height>
+       </size>
+      </property>
+      <layout class="QHBoxLayout" name="statusStripLayout">
+       <property name="spacing">
+        <number>28</number>
+       </property>
+       <property name="leftMargin">
+        <number>16</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>16</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QFrame" name="camChip">
+         <property name="chip" stdset="0">
+          <bool>true</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>32</height>
+          </size>
+         </property>
+         <layout class="QHBoxLayout" name="camChipLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <property name="leftMargin">
+           <number>14</number>
+          </property>
+          <property name="topMargin">
+           <number>4</number>
+          </property>
+          <property name="rightMargin">
+           <number>14</number>
+          </property>
+          <property name="bottomMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="camChipTitle">
+            <property name="text">
+             <string>相机</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="CamStatusLabel">
+            <property name="text">
+             <string>未打开</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipValue</string>
+            </property>
+            <property name="state" stdset="0">
+             <string notr="true">off</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="modelChip">
+         <property name="chip" stdset="0">
+          <bool>true</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>32</height>
+          </size>
+         </property>
+         <layout class="QHBoxLayout" name="modelChipLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <property name="leftMargin">
+           <number>14</number>
+          </property>
+          <property name="topMargin">
+           <number>4</number>
+          </property>
+          <property name="rightMargin">
+           <number>14</number>
+          </property>
+          <property name="bottomMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="modelChipTitle">
+            <property name="text">
+             <string>检测模型</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="ModelStatusLabel">
+            <property name="text">
+             <string>未加载</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipValue</string>
+            </property>
+            <property name="state" stdset="0">
+             <string notr="true">off</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="lightChip">
+         <property name="chip" stdset="0">
+          <bool>true</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>32</height>
+          </size>
+         </property>
+         <layout class="QHBoxLayout" name="lightChipLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <property name="leftMargin">
+           <number>14</number>
+          </property>
+          <property name="topMargin">
+           <number>4</number>
+          </property>
+          <property name="rightMargin">
+           <number>14</number>
+          </property>
+          <property name="bottomMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="lightChipTitle">
+            <property name="text">
+             <string>光源</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="LightStatusLabel">
+            <property name="text">
+             <string>TextLabel</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipValue</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="conveyorChip">
+         <property name="chip" stdset="0">
+          <bool>true</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>32</height>
+          </size>
+         </property>
+         <layout class="QHBoxLayout" name="conveyorChipLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <property name="leftMargin">
+           <number>14</number>
+          </property>
+          <property name="topMargin">
+           <number>4</number>
+          </property>
+          <property name="rightMargin">
+           <number>14</number>
+          </property>
+          <property name="bottomMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="conveyorChipTitle">
+            <property name="text">
+             <string>传送带</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="ConSatus">
+            <property name="text">
+             <string>TextLabel</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">chipValue</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="spacer_1">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources>
+  <include location="src.qrc" />
+ </resources>
+ <connections>
+  <connection>
+   <sender>navList</sender>
+   <signal>currentRowChanged(int)</signal>
+   <receiver>pageStack</receiver>
+   <slot>setCurrentIndex(int)</slot>
+  </connection>
+ </connections>
+</ui>

@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/branding">
+        <file>branding.ini</file>
+        <file>logo.png</file>
+    </qresource>
+</RCC>
