@@ -4,6 +4,7 @@
 
 !/.gitignore
 !/README.md
+!/LICENSE
 !/HIKONCam.pro
 !/src.qrc
 !/*.cpp
