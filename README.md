@@ -89,7 +89,6 @@ flowchart LR
 | CUDA Toolkit | 12.8 | [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive) | 系统安装 |
 | TensorRT | 10.10.0.31（Windows zip） | [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt) | 任意目录，下文记作 `<TensorRT>` |
 | 海康 MVS SDK | 随 MVS 客户端 | [海康机器人下载中心](https://www.hikrobotics.com/cn/machinevision/service/download/) | 头文件 → `includes/`，`MvCameraControl.lib` → `lib/` |
-| OpenCV | 4.11.0 预编译包 | [Release 4.11.0](https://github.com/opencv/opencv/releases/tag/4.11.0) | 解压为 `opencv/` |
 | Snap7 | 1.4.2 | [SourceForge](https://sourceforge.net/projects/snap7/files/1.4.2/) | 解压为 `snap7-full-1.4.2/` |
 | TensorRT-YOLO | 6.4.0，源码编译 | [GitHub](https://github.com/laugh12321/TensorRT-YOLO) | 安装到 `TRTYOLO/` |
 
@@ -97,7 +96,7 @@ flowchart LR
 
 ## 🔨 构建
 
-1. 装好上表中的系统组件，并把 MVS、OpenCV、Snap7 放到对应目录。
+1. 装好上表中的系统组件，并把 MVS、Snap7 放到对应目录。
 2. 在 “x64 Native Tools Command Prompt for VS 2022” 里编译 TensorRT-YOLO（需 CMake ≥ 3.18）：
 
    ```bat
@@ -132,12 +131,11 @@ trtexec --onnx=best-trtyolo.onnx --saveEngine=best.engine --fp16
 
 先把这些目录加入 `PATH`：
 
-- `<项目根目录>\opencv\build\x64\vc16\bin`
 - `<项目根目录>\TRTYOLO\bin`
 - `<TensorRT>\lib`
 - CUDA 和 MVS 的运行库目录（安装程序一般已配好）
 
-在 Qt Creator 的“项目 → 运行”里，把工作目录设为项目根目录，因为模型路径和保存路径 `.\Image` 都是相对它解析的。程序不会自动建目录，请先手动创建 `Image/`。脱离 Qt Creator 运行时，用 `windeployqt` 拷贝 Qt 运行库即可。
+在 Qt Creator 的“项目 → 运行”里，把工作目录设为项目根目录，因为模型路径和保存路径 `.\Image` 都是相对它解析的；保存目录不存在时程序会自动创建。脱离 Qt Creator 运行时，用 `windeployqt` 拷贝 Qt 运行库即可。
 
 🔑 默认账号 `admin`，密码 `123456`，正式部署前记得改掉。
 
@@ -157,13 +155,13 @@ HIKONCam/
 ├── HikLightController.cpp/.h     # 光源串口协议
 ├── ConveyorController.cpp/.h     # 传送带 Modbus ASCII
 ├── HIKONCam.pro                  # qmake 工程
-├── src/ui/                       # 界面图标
+├── src/ui/                       # 界面图标和样式表 app.qss
 ├── src/best.engine               # 自行生成
 ├── docs/images/                  # README 截图
 ├── includes/  lib/               # 自行从 MVS 复制
-├── opencv/  snap7-full-1.4.2/    # 自行下载
+├── snap7-full-1.4.2/             # 自行下载
 ├── TRTYOLO/                      # 自行编译安装
-└── Image/                        # 自行创建，默认保存目录
+└── Image/                        # 默认保存目录，运行时自动创建
 ```
 
 ## 📜 许可证
@@ -178,7 +176,6 @@ HIKONCam/
 | [trtyolo-export](https://pypi.org/project/trtyolo-export/) | GPL-3.0，仅用于导出 |
 | [Ultralytics](https://github.com/ultralytics/ultralytics) | AGPL-3.0 或商业许可，仅用于训练与导出 |
 | [Snap7](https://snap7.sourceforge.net/) | LGPL-3.0，源码编译进程序 |
-| [OpenCV](https://github.com/opencv/opencv) | Apache-2.0 |
 | [Qt](https://www.qt.io/) | LGPL-3.0 / GPL / 商业许可 |
 | CUDA、TensorRT | NVIDIA 软件许可协议 |
 | 海康 MVS SDK | 海康机器人软件许可 |
@@ -190,3 +187,12 @@ HIKONCam/
 [DawnJson](https://github.com/DawnJson) · DawnJson@users.noreply.github.com
 
 欢迎提 Issue 和 PR 🙌
+
+## ⭐ Star 趋势
+
+<a href="https://www.star-history.com/#dawnjson/linescan-defect-detection&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=dawnjson/linescan-defect-detection&type=Date&theme=dark" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=dawnjson/linescan-defect-detection&type=Date" />
+  </picture>
+</a>
